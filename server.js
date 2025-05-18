@@ -1,10 +1,7 @@
 const express = require("express");
 const app = express();
-const port = 3333;
-const httpPort = 3001; // Порт для HTTP
-const path = require("path");
+const port = 3333; // Порт для HTTPS
 const https = require("https");
-const http = require("http");
 const fs = require("fs");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
@@ -25,8 +22,8 @@ const { Role, Account } = require("./app/models/modelsDB");
 const privateKey = fs.readFileSync("localhost+2-key.pem");
 const certificate = fs.readFileSync("localhost+2.pem");
 const { Op, where } = require("sequelize");
-const { count } = require("console");
 const passport = require("passport");
+
 app.use(passport.initialize());
 app.use(express.json());
 app.use(
@@ -34,7 +31,11 @@ app.use(
 		secret: "pAssW0rd", // Секретный ключ
 		resave: false,
 		saveUninitialized: true,
-		cookie: { secure: true }, //  Устанавливаем secure: true для HTTPS
+		cookie: {
+			secure: true, // Требуется для HTTPS
+			httpOnly: true, // Защита от XSS
+			sameSite: "strict", // Защита от CSRF
+		},
 	})
 );
 
@@ -42,7 +43,7 @@ function generatePassword() {
 	var length = 8,
 		charset =
 			"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-	res = "";
+	let res = "";
 	for (var i = 0, n = charset.length; i < length; ++i) {
 		res += charset.charAt(Math.floor(Math.random() * n));
 	}
@@ -50,75 +51,57 @@ function generatePassword() {
 }
 
 const isAdmin = async (req, res, next) => {
-	// Проверка на администратора
 	try {
-		token_body = req.headers.token;
-
+		const token_body = req.headers.Authorization;
 		const acc = await Account.findOne({
-			where: {
-				token: token_body,
-			},
+			where: { token: token_body },
 		});
-
 		if (acc.role_id == 1) {
 			return next();
 		}
+		res.sendStatus(403);
 	} catch {
 		res.sendStatus(403);
 	}
-	res.sendStatus(403);
 };
 
 const isPartner = async (req, res, next) => {
-	// Проверка на предприятия-партнёра
 	try {
-		token_body = req.headers.token;
-
+		const token_body = req.headers.Authorization;
 		const acc = await Account.findOne({
-			where: {
-				token: token_body,
-			},
+			where: { token: token_body },
 		});
-
 		if (acc.role_id == 2) {
 			return next();
 		}
+		res.sendStatus(403);
 	} catch {
 		res.sendStatus(403);
 	}
-	res.sendStatus(403);
 };
 
 const isVolonter = async (req, res, next) => {
-	// Проверка на волонтёра
 	try {
-		token_body = req.headers.token;
-
+		const token_body = req.headers.Authorization;
 		const acc = await Account.findOne({
-			where: {
-				token: token_body,
-			},
+			where: { token: token_body },
 		});
-
 		if (acc.role_id == 3) {
 			return next();
 		}
+		res.sendStatus(403);
 	} catch {
 		res.sendStatus(403);
 	}
-	res.sendStatus(403);
 };
 
-// Маршрут для регистрации
+// Маршрут для регистрации волонтёра
 app.post("/register_volonter", async (req, res) => {
 	const { login, password } = req.body;
-
 	if (!login || !password) {
 		return res.status(400).json({ message: "Не все поля указаны" });
 	}
-
-	const result = await registerUser({ login, password, role_id: 3 }); // 3 - id волонтёра
-
+	const result = await registerUser({ login, password, role_id: 3 });
 	if (result.success) {
 		res.json(result.user);
 	} else {
@@ -126,16 +109,13 @@ app.post("/register_volonter", async (req, res) => {
 	}
 });
 
-// Маршрут для регистрации
+// Маршрут для регистрации партнёра
 app.post("/register_partner", async (req, res) => {
 	const { login, password } = req.body;
-
 	if (!login || !password) {
 		return res.status(400).json({ message: "Не все поля указаны" });
 	}
-
-	const result = await registerUser({ login, password, role_id: 2 }); // 2 - id предприятия-партнёра
-
+	const result = await registerUser({ login, password, role_id: 2 });
 	if (result.success) {
 		res.json(result.user);
 	} else {
@@ -151,7 +131,6 @@ app.get("/auth_test", isAuthenticated, async (req, res) => {
 app.post("/login", async (req, res) => {
 	const { login, password } = req.body;
 	const result = await authenticateUser(login, password);
-
 	if (result.success) {
 		res.json(result.user);
 	} else {
@@ -159,10 +138,26 @@ app.post("/login", async (req, res) => {
 	}
 });
 
+// Маршрут для проверки авторизации
+app.get(
+	"/check",
+	passport.authenticate("jwt", { session: false }),
+	(req, res) => {
+		res.json({
+			isAuthenticated: true,
+			user: {
+				id: req.user.id,
+				login: req.user.login,
+				role: req.user.role,
+			},
+		});
+	}
+);
+
 // Маршрут для выхода
 app.post(
 	"/logout",
-	//passport.authenticate("jwt", { session: false }),
+	passport.authenticate("jwt", { session: false }),
 	logoutUser
 );
 
@@ -178,7 +173,6 @@ app.delete(
 				.status(400)
 				.json({ message: "Некорректный ID пользователя" });
 		}
-
 		const result = await deleteUser(userId);
 		if (result.success) {
 			res.json({ message: result.message });
@@ -188,7 +182,7 @@ app.delete(
 	}
 );
 
-// Пример защищенных маршрутов для разных ролей
+// Защищённые маршруты для ролей
 app.get(
 	"/admin",
 	passport.authenticate("jwt", { session: false }),
@@ -216,12 +210,14 @@ app.get(
 	}
 );
 
-http.createServer(app).listen(port, () => {
-	console.log(`HTTP-сервер запущен на http://localhost:${port}`);
+// Создание HTTPS сервера
+const credentials = { key: privateKey, cert: certificate };
+https.createServer(credentials, app).listen(port, () => {
+	console.log(`HTTPS-сервер запущен на https://localhost:${port}`);
 });
 
+// Обработка сигналов завершения
 process.on("SIGINT", async () => {
-	//  Ctrl+C
 	try {
 		console.log("Получен сигнал SIGINT. Завершение работы...");
 		await disconnectFromDatabase();
@@ -233,7 +229,6 @@ process.on("SIGINT", async () => {
 });
 
 process.on("SIGTERM", async () => {
-	//  `kill` command
 	try {
 		console.log("Получен сигнал SIGTERM. Завершение работы...");
 		await disconnectFromDatabase();

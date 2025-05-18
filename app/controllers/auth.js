@@ -12,7 +12,7 @@ const {
 const isAuthenticated = async (req, res, next) => {
 	try {
 		// Получаем токен из заголовка запроса
-		const token = req.headers.token;
+		const token = req.headers.Authorization;
 
 		// Если токен не предоставлен, возвращаем ошибку 401
 		if (!token) {
@@ -33,8 +33,8 @@ const isAuthenticated = async (req, res, next) => {
 				.json({ message: "Неверный или истекший токен" });
 		}
 
-		// Пользователь авторизован, сохраняем данные пользователя в res и пропускаем запрос дальше
-		res.user = acc;
+		// Пользователь авторизован, сохраняем данные пользователя в req и пропускаем запрос дальше
+		req.user = acc;
 		return next();
 	} catch (error) {
 		// В случае ошибки возвращаем 500
