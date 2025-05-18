@@ -11,17 +11,25 @@ services:
       - DATABASE_URL=postgres://postgres:159357@db:5432/hakaton_db
     networks:
       - app-network
-  nginx:
-    image: nginx:alpine
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.main.rule=Host(`hyper-ist.mooo.com`)"
+      - "traefik.http.services.main.loadbalancer.server.port=3000"
+
+  traefik:
+    image: traefik:v2.5
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
     ports:
-      - "443:443"
+      - "80:80"
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-    depends_on:
-      - main-service
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - app-network
 
 networks:
   app-network:
     driver: bridge
+    external: true
