@@ -48,6 +48,13 @@ const Account = sequelize.define(
 			allowNull: false,
 			unique: true,
 		},
+		role_name: {
+			type: DataTypes.VIRTUAL,
+			get() {
+				// Возвращает значение naim из связанной модели Role
+				return this.role ? this.role.naim : null;
+			},
+		},
 	},
 	{
 		tableName: "account",
@@ -58,7 +65,6 @@ const Account = sequelize.define(
 
 // Определение связей
 Role.hasMany(Account, { foreignKey: "role_id", as: "accounts" });
-
 Account.belongsTo(Role, { foreignKey: "role_id", as: "role" });
 
 // Синхронизация моделей с базой данных

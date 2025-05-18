@@ -159,26 +159,10 @@ app.post("/login", async (req, res) => {
 	}
 });
 
-// Маршрут для проверки авторизации
-app.get(
-	"/check",
-	passport.authenticate("jwt", { session: false }),
-	(req, res) => {
-		res.json({
-			isAuthenticated: true,
-			user: {
-				id: req.user.id,
-				login: req.user.login,
-				role: req.user.role,
-			},
-		});
-	}
-);
-
 // Маршрут для выхода
 app.post(
 	"/logout",
-	passport.authenticate("jwt", { session: false }),
+	//passport.authenticate("jwt", { session: false }),
 	logoutUser
 );
 
