@@ -9,16 +9,16 @@ const {
 	client,
 	disconnectFromDatabase,
 	connectToDatabase,
-} = require("../app/models/client");
+} = require("./app/models/client");
 const {
 	authenticateUser,
 	registerUser,
 	isAuthenticated,
 	deleteUser,
 	logoutUser,
-} = require("../app/controllers/auth");
+} = require("./app/controllers/auth");
 const session = require("express-session");
-const { Role, Account } = require("../app/models/modelsDB");
+const { Role, Account } = require("./app/models/modelsDB");
 const privateKey = fs.readFileSync("localhost+2-key.pem");
 const certificate = fs.readFileSync("localhost+2.pem");
 const { Op, where } = require("sequelize");
