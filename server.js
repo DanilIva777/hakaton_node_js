@@ -25,6 +25,10 @@ const { Op, where } = require("sequelize");
 const passport = require("passport");
 
 app.use(passport.initialize());
+app.use(
+	"/.well-known/acme-challenge",
+	express.static("/var/www/html/.well-known/acme-challenge")
+);
 app.use(express.json());
 app.use(
 	session({
