@@ -3,7 +3,7 @@ version: "3.8"
 services:
   main-service:
     build:
-      context: .
+      context: ./main
       dockerfile: ./main/Dockerfile
     expose:
       - "3000"
