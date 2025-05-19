@@ -5,7 +5,7 @@ const https = require("https");
 const fs = require("fs");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
-const cors = require("cors");
+
 const {
 	client,
 	disconnectFromDatabase,
@@ -190,14 +190,9 @@ app.delete(
 
 // Создание HTTPS сервера
 const credentials = { key: privateKey, cert: certificate };
-app.use(
-	cors({
-		origin: "*", // Разрешаем запросы с любых доменов
-		methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Разрешенные методы
-		allowedHeaders: ["Content-Type", "Authorization"], // Разрешенные заголовки
-		credentials: credentials,
-	})
-);
+https.createServer(credentials, app).listen(port, () => {
+	console.log(`HTTPS-сервер запущен на https://localhost:${port}`);
+});
 
 // Обработка сигналов завершения
 process.on("SIGINT", async () => {
