@@ -15,6 +15,9 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.main.rule=Host(`hyper-ist.mooo.com`)"
       - "traefik.http.services.main.loadbalancer.server.port=3000"
+      - "traefik.http.routers.main.entrypoints=web,websecure"
+      - "traefik.http.routers.main.tls=true"
+      - "traefik.http.routers.main.tls.certresolver=myresolver"
 
   traefik:
     image: traefik:v2.5
