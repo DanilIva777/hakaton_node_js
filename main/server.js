@@ -1,7 +1,7 @@
 const express = require("express");
 const app = express();
 const port = 3000; // Порт для HTTPS
-const https = require("https");
+const http = require('http');
 const fs = require("fs");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
@@ -352,35 +352,28 @@ app.put("/update-setting_ticket/:id", isAdmin, async (req, res) => {
 	}
 });
 
-/*app.get("/history_operations", async (req, res) => {
-
-});*/
-
-// Создание HTTPS сервера
-const credentials = { key: privateKey, cert: certificate };
-https.createServer(credentials, app).listen(port, () => {
-	console.log(`HTTPS-сервер запущен на https://localhost:${port}`);
+http.createServer(app).listen(port, () => {
+    console.log(`HTTP-сервер запущен на http://localhost:${port}`);
 });
 
-// Обработка сигналов завершения
 process.on("SIGINT", async () => {
-	try {
-		console.log("Получен сигнал SIGINT. Завершение работы...");
-		await disconnectFromDatabase();
-	} catch (error) {
-		console.error("Ошибка при отключении от БД:", error);
-	} finally {
-		process.exit();
-	}
+    try {
+        console.log("Получен сигнал SIGINT. Завершение работы...");
+        await disconnectFromDatabase();
+    } catch (error) {
+        console.error("Ошибка при отключении от БД:", error);
+    } finally {
+        process.exit();
+    }
 });
 
 process.on("SIGTERM", async () => {
-	try {
-		console.log("Получен сигнал SIGTERM. Завершение работы...");
-		await disconnectFromDatabase();
-	} catch (error) {
-		console.error("Ошибка при отключении от БД:", error);
-	} finally {
-		process.exit();
-	}
+    try {
+        console.log("Получен сигнал SIGTERM. Завершение работы...");
+        await disconnectFromDatabase();
+    } catch (error) {
+        console.error("Ошибка при отключении от БД:", error);
+    } finally {
+        process.exit();
+    }
 });
