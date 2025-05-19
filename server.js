@@ -16,7 +16,6 @@ const {
 	registerUser,
 	isAuthenticated,
 	deleteUser,
-	logoutUser,
 } = require("./app/controllers/auth");
 const session = require("express-session");
 const {
@@ -35,6 +34,7 @@ const certificate = fs.readFileSync("localhost+2.pem");
 const { Op, where } = require("sequelize");
 const passport = require("passport");
 const si = require("systeminformation");
+const { console } = require("inspector");
 
 app.use(passport.initialize());
 app.use(
@@ -185,13 +185,6 @@ app.get(
 	}
 );
 
-// Маршрут для выхода
-app.post(
-	"/logout",
-	passport.authenticate("jwt", { session: false }),
-	logoutUser
-);
-
 // Ручка для обновления почты
 app.put(
 	"/update-mail",
@@ -290,80 +283,78 @@ app.post("/setting_ticket", isAdmin, async (req, res) => {
 
 // Ручка для изменения записи в таблице setting_ticket (только для админа)
 // Путь сохранен как "/update-ticket/:id", но обновляет настройку билета
-app.put(
-	"/update-setting_ticket/:id",
-	isAdmin,
-	async (req, res) => {
-		try {
-			// ID в пути теперь относится к ID записи в таблице setting_ticket
-			const settingTicketId = parseInt(req.params.id, 10);
-			if (isNaN(settingTicketId)) {
-				return res
-					.status(400)
-					.json({ message: "Некорректный ID настройки билета" });
-			}
-
-			// Поля для обновления должны соответствовать полям таблицы setting_ticket
-			const {
-				time,
-				price_ticket,
-				percent_fond,
-				is_start,
-				size_x,
-				size_y,
-				count_number_row,
-				count_fill_user,
-			} = req.body;
-
-			// Поиск записи в таблице setting_ticket по ее ID
-			const settingTicketToUpdate = await SettingTicket.findOne({
-				where: { id: settingTicketId },
-			});
-			if (!settingTicketToUpdate) {
-				return res
-					.status(404)
-					.json({ message: "Настройка билета не найдена" });
-			}
-
-			// Объект с данными для обновления. Включаем только те поля, которые были переданы в body.
-			const updateData = {};
-			if (time !== undefined) updateData.time = time;
-			if (price_ticket !== undefined)
-				updateData.price_ticket = price_ticket;
-			if (percent_fond !== undefined)
-				updateData.percent_fond = percent_fond;
-			if (is_start !== undefined) updateData.is_start = is_start;
-			if (size_x !== undefined) updateData.size_x = size_x;
-			if (size_y !== undefined) updateData.size_y = size_y;
-			if (count_number_row !== undefined)
-				updateData.count_number_row = count_number_row;
-			if (count_fill_user !== undefined)
-				updateData.count_fill_user = count_fill_user;
-
-			// Обновление записи setting_ticket
-			await settingTicketToUpdate.update(updateData);
-
-			res.json({
-				success: true,
-				settingTicket: {
-					// Объект в ответе представляет обновленную запись setting_ticket
-					id: settingTicketToUpdate.id,
-					time: settingTicketToUpdate.time,
-					price_ticket: settingTicketToUpdate.price_ticket,
-					percent_fond: settingTicketToUpdate.percent_fond,
-					is_start: settingTicketToUpdate.is_start,
-					size_x: settingTicketToUpdate.size_x,
-					size_y: settingTicketToUpdate.size_y,
-					count_number_row: settingTicketToUpdate.count_number_row,
-					count_fill_user: settingTicketToUpdate.count_fill_user,
-				},
-			});
-		} catch (error) {
-			console.error("Ошибка при обновлении настройки билета:", error);
-			res.status(500).json({ message: "Ошибка сервера" });
+app.put("/update-setting_ticket/:id", isAdmin, async (req, res) => {
+	try {
+		// ID в пути теперь относится к ID записи в таблице setting_ticket
+		const settingTicketId = parseInt(req.params.id, 10);
+		if (isNaN(settingTicketId)) {
+			return res
+				.status(400)
+				.json({ message: "Некорректный ID настройки билета" });
 		}
+
+		// Поля для обновления должны соответствовать полям таблицы setting_ticket
+		const {
+			time,
+			price_ticket,
+			percent_fond,
+			is_start,
+			size_x,
+			size_y,
+			count_number_row,
+			count_fill_user,
+		} = req.body;
+
+		// Поиск записи в таблице setting_ticket по ее ID
+		const settingTicketToUpdate = await SettingTicket.findOne({
+			where: { id: settingTicketId },
+		});
+		if (!settingTicketToUpdate) {
+			return res
+				.status(404)
+				.json({ message: "Настройка билета не найдена" });
+		}
+
+		// Объект с данными для обновления. Включаем только те поля, которые были переданы в body.
+		const updateData = {};
+		if (time !== undefined) updateData.time = time;
+		if (price_ticket !== undefined) updateData.price_ticket = price_ticket;
+		if (percent_fond !== undefined) updateData.percent_fond = percent_fond;
+		if (is_start !== undefined) updateData.is_start = is_start;
+		if (size_x !== undefined) updateData.size_x = size_x;
+		if (size_y !== undefined) updateData.size_y = size_y;
+		if (count_number_row !== undefined)
+			updateData.count_number_row = count_number_row;
+		if (count_fill_user !== undefined)
+			updateData.count_fill_user = count_fill_user;
+
+		// Обновление записи setting_ticket
+		await settingTicketToUpdate.update(updateData);
+
+		res.json({
+			success: true,
+			settingTicket: {
+				// Объект в ответе представляет обновленную запись setting_ticket
+				id: settingTicketToUpdate.id,
+				time: settingTicketToUpdate.time,
+				price_ticket: settingTicketToUpdate.price_ticket,
+				percent_fond: settingTicketToUpdate.percent_fond,
+				is_start: settingTicketToUpdate.is_start,
+				size_x: settingTicketToUpdate.size_x,
+				size_y: settingTicketToUpdate.size_y,
+				count_number_row: settingTicketToUpdate.count_number_row,
+				count_fill_user: settingTicketToUpdate.count_fill_user,
+			},
+		});
+	} catch (error) {
+		console.error("Ошибка при обновлении настройки билета:", error);
+		res.status(500).json({ message: "Ошибка сервера" });
 	}
-);
+});
+
+/*app.get("/history_operations", async (req, res) => {
+
+});*/
 
 // Создание HTTPS сервера
 const credentials = { key: privateKey, cert: certificate };

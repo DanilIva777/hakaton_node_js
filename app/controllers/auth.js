@@ -128,21 +128,13 @@ async function authenticateUser({ identifier, password }) {
 			};
 		}
 
-		const token = jwt.sign(
-			{ id: user.id, login: user.login, role: user.role.naim },
-			process.env.JWT_SECRET || "your_jwt_secret",
-			{ expiresIn: "1h" }
-		);
-
-		await Account.update({ token }, { where: { id: user.id } });
-
 		return {
 			success: true,
 			user: {
 				id: user.id,
 				login: user.login,
 				role: user.role.naim,
-				token,
+				token: user.token,
 				mail: user.mail,
 			},
 		};
@@ -197,24 +189,10 @@ async function deleteUser(userId) {
 	}
 }
 
-function logoutUser(req, res) {
-	if (req.user) {
-		Account.update({ token: null }, { where: { id: req.user.id } })
-			.then(() => res.json({ message: "Выход выполнен" }))
-			.catch((err) => {
-				console.error("Ошибка при выходе:", err);
-				res.status(500).json({ message: "Ошибка сервера" });
-			});
-	} else {
-		res.status(401).json({ message: "Пользователь не авторизован" });
-	}
-}
-
 module.exports = {
 	authenticateUser,
 	isAuthenticated,
 	registerUser,
 	deleteUser,
-	logoutUser,
 	updateUserMail, // Экспортируем новую функцию
 };
