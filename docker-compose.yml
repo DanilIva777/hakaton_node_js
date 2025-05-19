@@ -15,9 +15,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.main.rule=Host(`hyper-ist.mooo.com`)"
       - "traefik.http.services.main.loadbalancer.server.port=3000"
-      - "traefik.http.routers.main.entrypoints=web,websecure"
-      - "traefik.http.routers.main.tls=true"
-      - "traefik.http.routers.main.tls.certresolver=myresolver"
+      - "traefik.http.routers.main.entrypoints=web"
 
   traefik:
     image: traefik:v2.5
@@ -25,16 +23,10 @@ services:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
-      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
-      - "--certificatesresolvers.myresolver.acme.email=yura.volkovskiy.2006@gmail.com"
-      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
     ports:
-      - "443:443"
+      - "80:80"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./letsencrypt:/letsencrypt
     networks:
       - app-network
 
