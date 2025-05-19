@@ -1,7 +1,13 @@
 const { Sequelize, DataTypes } = require("sequelize");
-const { sequelize } = require("./client");
 
-// Определение моделей
+// Инициализация Sequelize
+const sequelize = new Sequelize("hakaton_db", "postgres", "your_password", {
+	host: "localhost",
+	dialect: "postgres",
+	logging: false,
+});
+
+// Определение модели Role
 const Role = sequelize.define(
 	"Role",
 	{
@@ -22,6 +28,7 @@ const Role = sequelize.define(
 	}
 );
 
+// Определение модели Account
 const Account = sequelize.define(
 	"Account",
 	{
@@ -48,6 +55,11 @@ const Account = sequelize.define(
 			allowNull: false,
 			unique: true,
 		},
+		mail: {
+			type: DataTypes.TEXT,
+			allowNull: true,
+			unique: true,
+		},
 	},
 	{
 		tableName: "account",
@@ -69,7 +81,7 @@ const SettingTicket = sequelize.define(
 			type: DataTypes.DATE,
 			allowNull: true,
 		},
-		fond: {
+		price_ticket: {
 			type: DataTypes.DECIMAL,
 			allowNull: true,
 		},
@@ -95,6 +107,10 @@ const SettingTicket = sequelize.define(
 		},
 		count_fill_user: {
 			type: DataTypes.INTEGER,
+			allowNull: true,
+		},
+		price: {
+			type: DataTypes.DECIMAL,
 			allowNull: true,
 		},
 	},
@@ -127,6 +143,10 @@ const GeneratedTicket = sequelize.define(
 			allowNull: true,
 		},
 		arr_number: {
+			type: DataTypes.JSONB,
+			allowNull: true,
+		},
+		arr_true_number: {
 			type: DataTypes.JSONB,
 			allowNull: true,
 		},
@@ -167,17 +187,101 @@ const FilledTicket = sequelize.define(
 			type: DataTypes.BOOLEAN,
 			allowNull: true,
 		},
-		prize: {
-			type: DataTypes.DECIMAL,
-			allowNull: true,
-		},
 		id_ticket: {
+			type: DataTypes.INTEGER,
+			allowNull: false,
+		},
+		id_history_operation: {
 			type: DataTypes.INTEGER,
 			allowNull: false,
 		},
 	},
 	{
 		tableName: "filled_ticket",
+		schema: "public",
+		timestamps: false,
+	}
+);
+
+// Определение модели HistoryOperation
+const HistoryOperation = sequelize.define(
+	"HistoryOperation",
+	{
+		id: {
+			type: DataTypes.INTEGER,
+			primaryKey: true,
+			autoIncrement: true,
+		},
+		id_user: {
+			type: DataTypes.INTEGER,
+			allowNull: false,
+		},
+		change: {
+			type: DataTypes.DECIMAL,
+			allowNull: false,
+		},
+		type_transaction: {
+			type: DataTypes.INTEGER,
+			allowNull: false,
+		},
+		is_succesfull: {
+			type: DataTypes.BOOLEAN,
+			allowNull: false,
+			defaultValue: false,
+		},
+	},
+	{
+		tableName: "history_operation",
+		schema: "public",
+		timestamps: false,
+	}
+);
+
+// Определение модели TypeTransaction
+const TypeTransaction = sequelize.define(
+	"TypeTransaction",
+	{
+		id: {
+			type: DataTypes.INTEGER,
+			primaryKey: true,
+			autoIncrement: true,
+		},
+		naim: {
+			type: DataTypes.TEXT,
+			allowNull: false,
+		},
+	},
+	{
+		tableName: "type_transaction",
+		schema: "public",
+		timestamps: false,
+	}
+);
+
+// Определение модели UserInfo
+const UserInfo = sequelize.define(
+	"UserInfo",
+	{
+		id: {
+			type: DataTypes.INTEGER,
+			primaryKey: true,
+			autoIncrement: true,
+		},
+		id_acc: {
+			type: DataTypes.INTEGER,
+			allowNull: false,
+		},
+		balance_virtual: {
+			type: DataTypes.DECIMAL,
+			allowNull: false,
+		},
+		balance_real: {
+			type: DataTypes.DECIMAL,
+			allowNull: false,
+		},
+	},
+	{
+		tableName: "user_info",
 		schema: "public",
 		timestamps: false,
 	}
@@ -198,9 +302,9 @@ GeneratedTicket.belongsTo(SettingTicket, {
 	as: "setting_ticket",
 });
 
-// Связь filled_ticket -> account (многие к одному)
-Account.hasMany(FilledTicket, { foreignKey: "id_user", as: "filled_tickets" });
-FilledTicket.belongsTo(Account, { foreignKey: "id_user", as: "user" });
+// Связь filled_ticket -> user_info (многие к одному)
+UserInfo.hasMany(FilledTicket, { foreignKey: "id_user", as: "filled_tickets" });
+FilledTicket.belongsTo(UserInfo, { foreignKey: "id_user", as: "user" });
 
 // Связь filled_ticket -> generated_ticket (многие к одному)
 GeneratedTicket.hasMany(FilledTicket, {
@@ -212,11 +316,46 @@ FilledTicket.belongsTo(GeneratedTicket, {
 	as: "ticket",
 });
 
+// Связь filled_ticket -> history_operation (многие к одному)
+HistoryOperation.hasMany(FilledTicket, {
+	foreignKey: "id_history_operation",
+	as: "filled_tickets",
+});
+FilledTicket.belongsTo(HistoryOperation, {
+	foreignKey: "id_history_operation",
+	as: "history",
+});
+
+// Связь history_operation -> user_info (многие к одному)
+UserInfo.hasMany(HistoryOperation, {
+	foreignKey: "id_user",
+	as: "history_operations",
+});
+HistoryOperation.belongsTo(UserInfo, { foreignKey: "id_user", as: "user" });
+
+// Связь history_operation -> type_transaction (многие к одному)
+TypeTransaction.hasMany(HistoryOperation, {
+	foreignKey: "type_transaction",
+	as: "history_operations",
+});
+HistoryOperation.belongsTo(TypeTransaction, {
+	foreignKey: "type_transaction",
+	as: "transaction_type",
+});
+
+// Связь user_info -> account (многие к одному)
+Account.hasOne(UserInfo, { foreignKey: "id_acc", as: "info" });
+UserInfo.belongsTo(Account, { foreignKey: "id_acc", as: "account" });
+
 // Экспорт моделей
 module.exports = {
+	sequelize,
 	Role,
 	Account,
 	SettingTicket,
 	GeneratedTicket,
 	FilledTicket,
+	HistoryOperation,
+	TypeTransaction,
+	UserInfo,
 };

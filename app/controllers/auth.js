@@ -1,13 +1,6 @@
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
-const {
-	Account,
-	Role,
-	Volonter,
-	Partner,
-	Bonus,
-	NachBonus,
-} = require("../models/modelsDB");
+const { Account, Role } = require("../models/modelsDB");
 
 const isAuthenticated = async (req, res, next) => {
 	try {
@@ -46,17 +39,17 @@ const isAuthenticated = async (req, res, next) => {
 	return res.sendStatus(403);
 };
 
-async function registerUser({ login, password, role_id }) {
+async function registerUser({ login, password, role_id, mail }) {
 	try {
 		// Проверяем, существует ли пользователь с таким логином
-		const existingUser = await Account.findOne({ where: { login } });
-		if (existingUser) {
+		const existingUserLogin = await Account.findOne({ where: { login } });
+		const existingUserMail = await Account.findOne({ where: { mail } });
+		if (existingUserLogin || existingUserMail) {
 			return {
 				success: false,
 				message: "Пользователь с таким логином уже существует",
 			};
 		}
-		console.log(login);
 
 		// Проверяем, что role_id валиден
 		const role = await Role.findOne({ where: { id: role_id } });
@@ -78,7 +71,8 @@ async function registerUser({ login, password, role_id }) {
 			login,
 			password: hashedPassword,
 			role_id,
-			token, // Сохраняем токен сразу
+			token, // Сохраняем токен
+			mail: mail || null, // Почта необязательна, если не указана, устанавливаем null
 		});
 
 		return {
@@ -88,6 +82,7 @@ async function registerUser({ login, password, role_id }) {
 				login: newUser.login,
 				role: role.naim,
 				token: token,
+				mail: newUser.mail,
 			},
 		};
 	} catch (error) {
@@ -96,17 +91,23 @@ async function registerUser({ login, password, role_id }) {
 	}
 }
 
-async function authenticateUser(login, password) {
+async function authenticateUser({ identifier, password }) {
 	try {
+		// Ищем пользователя по login или mail
 		const user = await Account.findOne({
-			where: { login },
+			where: {
+				[Op.or]: [{ login: identifier }, { mail: identifier }],
+			},
 			include: [{ model: Role, as: "role" }],
 			raw: true,
 			nest: true,
 		});
 
 		if (!user || !(await bcrypt.compare(password, user.password))) {
-			return { success: false, message: "Неверный логин или пароль" };
+			return {
+				success: false,
+				message: "Неверный логин/почта или пароль",
+			};
 		}
 
 		const token = jwt.sign(
@@ -124,10 +125,32 @@ async function authenticateUser(login, password) {
 				login: user.login,
 				role: user.role.naim,
 				token,
+				mail: user.mail,
 			},
 		};
 	} catch (error) {
-		console.error(`Ошибка при аутентификации login = ${login}:`, error);
+		console.error(
+			`Ошибка при аутентификации identifier = ${identifier}:`,
+			error
+		);
+		return { success: false, message: "Ошибка сервера" };
+	}
+}
+
+async function updateUserMail(userId, newMail) {
+	try {
+		const user = await Account.findOne({ where: { id: userId } });
+		if (!user) {
+			return { success: false, message: "Пользователь не найден" };
+		}
+
+		await Account.update({ mail: newMail }, { where: { id: userId } });
+		return { success: true, message: "Почта успешно обновлена" };
+	} catch (error) {
+		console.error(
+			`Ошибка при обновлении почты для userId = ${userId}:`,
+			error
+		);
 		return { success: false, message: "Ошибка сервера" };
 	}
 }
@@ -143,17 +166,10 @@ async function deleteUser(userId) {
 			return { success: false, message: "Пользователь не найден" };
 		}
 
-		await Volonter.destroy({ where: { id_acc: userId } });
-		const partner = await Partner.findOne({ where: { id_acc: userId } });
-		if (partner) {
-			await Bonus.destroy({ where: { id_partner: partner.id } });
-			await Partner.destroy({ where: { id_acc: userId } });
-		}
-		await NachBonus.destroy({ where: { id_volonter: userId } });
-
 		await Account.destroy({ where: { id: userId } });
 
 		return { success: true, message: "Пользователь успешно удален" };
+		// Убраны дополнительные удаления, так как в предоставленном коде они не относятся к модели Account напрямую
 	} catch (error) {
 		console.error(
 			`Ошибка при удалении пользователя id = ${userId}:`,
@@ -182,4 +198,5 @@ module.exports = {
 	registerUser,
 	deleteUser,
 	logoutUser,
+	updateUserMail, // Экспортируем новую функцию
 };

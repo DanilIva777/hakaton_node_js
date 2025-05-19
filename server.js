@@ -25,6 +25,9 @@ const {
 	SettingTicket,
 	GeneratedTicket,
 	FilledTicket,
+	HistoryOperation,
+	TypeTransaction,
+	UserInfo,
 } = require("./app/models/modelsDB");
 const privateKey = fs.readFileSync("localhost+2-key.pem");
 const certificate = fs.readFileSync("localhost+2.pem");
@@ -48,6 +51,16 @@ app.use(
 			httpOnly: true, // Защита от XSS
 			sameSite: "strict", // Защита от CSRF
 		},
+	})
+);
+
+// Настройка CORS
+app.use(
+	cors({
+		origin: "*", // Разрешаем запросы с любых доменов
+		methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Разрешенные методы
+		allowedHeaders: ["Content-Type", "Authorization"], // Разрешенные заголовки
+		credentials: true, // Разрешаем отправку куки и заголовков авторизации
 	})
 );
 
@@ -117,18 +130,20 @@ const isUser = async (req, res, next) => {
 
 // Маршрут для регистрации
 app.post("/register_user", async (req, res) => {
-	const { login, password } = req.body;
+	const { login, password, mail } = req.body;
+	console.log("Received request:", { login, password, mail }); // Добавлен лог
 	if (!login || !password) {
 		return res.status(400).json({ message: "Не все поля указаны" });
 	}
-	const result = await registerUser({ login, password, role_id: 2 }); // 2 - role_id пользователя
+	console.log("Before registerUser call");
+	const result = await registerUser({ login, password, role_id: 2, mail });
+	console.log("After registerUser call", result);
 	if (result.success) {
 		res.json(result.user);
 	} else {
 		res.status(400).json({ message: result.message });
 	}
 });
-
 app.get("/auth_test", isAuthenticated, async (req, res) => {
 	res.json({ text: "Пользователь авторизован" });
 });
@@ -167,6 +182,25 @@ app.post(
 	logoutUser
 );
 
+// Ручка для обновления почты
+app.put(
+	"/update-mail",
+	passport.authenticate("jwt", { session: false }),
+	async (req, res) => {
+		const { newMail } = req.body;
+		if (!newMail) {
+			return res.status(400).json({ message: "Новая почта не указана" });
+		}
+
+		const result = await updateUserMail(req.user.id, newMail);
+		if (result.success) {
+			res.json({ message: result.message });
+		} else {
+			res.status(400).json({ message: result.message });
+		}
+	}
+);
+
 // Маршрут для удаления пользователя (только для админа)
 app.delete(
 	"/user/:id",
@@ -186,16 +220,6 @@ app.delete(
 			res.status(400).json({ message: result.message });
 		}
 	}
-);
-
-// Настройка CORS
-app.use(
-	cors({
-		origin: "*", // Разрешаем запросы с любых доменов
-		methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Разрешенные методы
-		allowedHeaders: ["Content-Type", "Authorization"], // Разрешенные заголовки
-		credentials: true, // Разрешаем отправку куки и заголовков авторизации
-	})
 );
 
 // Создание HTTPS сервера
