@@ -1,17 +1,44 @@
 version: "3.8"
+
 services:
-    node-app:
-        build:
-            context: .
-            dockerfile: Dockerfile
-        ports:
-            - "443:443"
-        environment:
-            - DATABASE_URL=postgres://postgres:159357@hakaton_db-postgres-db-1:5434/hakaton_db
-        networks:
-            - app-network
-        restart: unless-stopped
+  main-service:
+    build:
+      context: .
+      dockerfile: ./main/Dockerfile
+    expose:
+      - "3000"
+    environment:
+      - DATABASE_URL=postgres://postgres:159357@db:5432/hakaton_db
+    networks:
+      - app-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.main.rule=Host(`hyper-ist.mooo.com`)"
+      - "traefik.http.services.main.loadbalancer.server.port=3000"
+      - "traefik.http.routers.main.entrypoints=web,websecure"
+      - "traefik.http.routers.main.tls=true"
+      - "traefik.http.routers.main.tls.certresolver=myresolver"
+
+  traefik:
+    image: traefik:v2.5
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.myresolver.acme.email=your-email@example.com"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./letsencrypt:/letsencrypt
+    networks:
+      - app-network
 
 networks:
-    app-network:
-        external: true
+  app-network:
+    driver: bridge
+    external: true

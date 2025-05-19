@@ -1,5 +1,5 @@
 FROM node:18
 WORKDIR /app
-COPY . .
+COPY ./main .
 RUN npm install
 CMD ["node", "server.js"]
