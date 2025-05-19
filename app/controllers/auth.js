@@ -1,6 +1,13 @@
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
-const { Account, Role } = require("../models/modelsDB");
+const {
+	Account,
+	Role,
+	Volonter,
+	Partner,
+	Bonus,
+	NachBonus,
+} = require("../models/modelsDB");
 
 const isAuthenticated = async (req, res, next) => {
 	try {
@@ -43,12 +50,23 @@ async function registerUser({ login, password, role_id, mail }) {
 	try {
 		// Проверяем, существует ли пользователь с таким логином
 		const existingUserLogin = await Account.findOne({ where: { login } });
-		const existingUserMail = await Account.findOne({ where: { mail } });
-		if (existingUserLogin || existingUserMail) {
+		if (existingUserLogin) {
 			return {
 				success: false,
 				message: "Пользователь с таким логином уже существует",
 			};
+		}
+
+		// Проверяем, существует ли пользователь с таким mail, только если mail задан
+		let existingUserMail = null;
+		if (mail !== undefined && mail !== null) {
+			existingUserMail = await Account.findOne({ where: { mail } });
+			if (existingUserMail) {
+				return {
+					success: false,
+					message: "Пользователь с таким email уже существует",
+				};
+			}
 		}
 
 		// Проверяем, что role_id валиден

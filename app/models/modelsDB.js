@@ -1,11 +1,5 @@
 const { Sequelize, DataTypes } = require("sequelize");
-
-// Инициализация Sequelize
-const sequelize = new Sequelize("hakaton_db", "postgres", "your_password", {
-	host: "localhost",
-	dialect: "postgres",
-	logging: false,
-});
+const { sequelize } = require("./client");
 
 // Определение модели Role
 const Role = sequelize.define(

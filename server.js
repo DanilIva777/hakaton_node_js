@@ -28,6 +28,7 @@ const {
 	HistoryOperation,
 	TypeTransaction,
 	UserInfo,
+	sequelize,
 } = require("./app/models/modelsDB");
 const privateKey = fs.readFileSync("localhost+2-key.pem");
 const certificate = fs.readFileSync("localhost+2.pem");
@@ -131,13 +132,12 @@ const isUser = async (req, res, next) => {
 // Маршрут для регистрации
 app.post("/register_user", async (req, res) => {
 	const { login, password, mail } = req.body;
-	console.log("Received request:", { login, password, mail }); // Добавлен лог
+	
 	if (!login || !password) {
 		return res.status(400).json({ message: "Не все поля указаны" });
 	}
-	console.log("Before registerUser call");
+	
 	const result = await registerUser({ login, password, role_id: 2, mail });
-	console.log("After registerUser call", result);
 	if (result.success) {
 		res.json(result.user);
 	} else {
