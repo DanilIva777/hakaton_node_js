@@ -292,7 +292,6 @@ app.post("/setting_ticket", isAdmin, async (req, res) => {
 // Путь сохранен как "/update-ticket/:id", но обновляет настройку билета
 app.put(
 	"/update-setting_ticket/:id",
-	passport.authenticate("jwt", { session: false }),
 	isAdmin,
 	async (req, res) => {
 		try {
@@ -314,7 +313,6 @@ app.put(
 				size_y,
 				count_number_row,
 				count_fill_user,
-				price,
 			} = req.body;
 
 			// Поиск записи в таблице setting_ticket по ее ID

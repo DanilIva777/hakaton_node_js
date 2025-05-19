@@ -207,7 +207,7 @@ const HistoryOperation = sequelize.define(
 			allowNull: false,
 		},
 		change: {
-			type: DataTypes.DECIMAL,
+			type: DataTypes.DECIMAL, // Соответствует money
 			allowNull: false,
 		},
 		type_transaction: {
@@ -218,6 +218,14 @@ const HistoryOperation = sequelize.define(
 			type: DataTypes.BOOLEAN,
 			allowNull: false,
 			defaultValue: false,
+		},
+		date: {
+			type: DataTypes.DATEONLY,
+			allowNull: true,
+		},
+		time: {
+			type: DataTypes.TIME,
+			allowNull: true,
 		},
 	},
 	{
