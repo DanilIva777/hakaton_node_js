@@ -72,7 +72,7 @@ const SettingTicket = sequelize.define(
 			autoIncrement: true,
 		},
 		time: {
-			type: DataTypes.DATE,
+			type: DataTypes.TIME,
 			allowNull: true,
 		},
 		price_ticket: {
@@ -103,10 +103,6 @@ const SettingTicket = sequelize.define(
 			type: DataTypes.INTEGER,
 			allowNull: true,
 		},
-		price: {
-			type: DataTypes.DECIMAL,
-			allowNull: true,
-		},
 	},
 	{
 		tableName: "setting_ticket",
@@ -133,7 +129,7 @@ const GeneratedTicket = sequelize.define(
 			allowNull: true,
 		},
 		time_generated: {
-			type: DataTypes.DATE,
+			type: DataTypes.TIME,
 			allowNull: true,
 		},
 		arr_number: {
@@ -170,7 +166,7 @@ const FilledTicket = sequelize.define(
 			allowNull: true,
 		},
 		time: {
-			type: DataTypes.DATE,
+			type: DataTypes.TIME,
 			allowNull: true,
 		},
 		filled_cell: {

@@ -81,9 +81,8 @@ async function registerUser({ login, password, role_id, mail }) {
 
 		// Генерируем JWT-токен до создания пользователя
 		const token = jwt.sign(
-			{ id: null, login, role: role.naim }, // id будет добавлен после создания
-			process.env.JWT_SECRET || "your_jwt_secret",
-			{ expiresIn: "1h" }
+			{ id: null, login, role: role.naim },
+			process.env.JWT_SECRET || "j_w_t_secret"
 		);
 		// Создаем нового пользователя
 		const newUser = await Account.create({
