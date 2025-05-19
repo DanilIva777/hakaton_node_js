@@ -6,7 +6,9 @@ services:
       context: .
       dockerfile: ./main/Dockerfile
     expose:
-      - "3000"
+      - "3000" # Keep this for internal container network access (e.g., Traefik)
+    ports:
+      - "3000:3000" # Add this to bind port 3000 to the host
     environment:
       - DATABASE_URL=postgres://postgres:159357@db:5432/hakaton_db
     networks:
