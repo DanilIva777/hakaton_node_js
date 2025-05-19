@@ -132,11 +132,11 @@ const isUser = async (req, res, next) => {
 // Маршрут для регистрации
 app.post("/register_user", async (req, res) => {
 	const { login, password, mail } = req.body;
-	
+
 	if (!login || !password) {
 		return res.status(400).json({ message: "Не все поля указаны" });
 	}
-	
+
 	const result = await registerUser({ login, password, role_id: 2, mail });
 	if (result.success) {
 		res.json(result.user);
@@ -150,12 +150,20 @@ app.get("/auth_test", isAuthenticated, async (req, res) => {
 
 // Маршрут для логина
 app.post("/login", async (req, res) => {
-	const { login, password } = req.body;
-	const result = await authenticateUser(login, password);
-	if (result.success) {
-		res.json(result.user);
-	} else {
-		res.status(401).json({ message: result.message });
+	const { identifier, password } = req.body;
+	if (!identifier || !password) {
+		return res.status(400).json({ message: "Не все поля указаны" });
+	}
+	try {
+		const result = await authenticateUser({ identifier, password });
+		if (result.success) {
+			res.json(result.user);
+		} else {
+			res.status(401).json({ message: result.message });
+		}
+	} catch (error) {
+		console.error("Ошибка при логине:", error);
+		res.status(500).json({ message: "Ошибка подключения к базе данных" });
 	}
 });
 

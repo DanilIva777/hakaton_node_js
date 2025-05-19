@@ -8,6 +8,7 @@ const {
 	Bonus,
 	NachBonus,
 } = require("../models/modelsDB");
+const { Op, where } = require("sequelize");
 
 const isAuthenticated = async (req, res, next) => {
 	try {
