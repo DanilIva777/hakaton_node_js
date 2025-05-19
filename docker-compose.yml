@@ -6,9 +6,9 @@ services:
       context: .
       dockerfile: ./main/Dockerfile
     expose:
-      - "3000" # Keep this for internal container network access (e.g., Traefik)
+      - "3000"
     ports:
-      - "3000:3000" # Add this to bind port 3000 to the host
+      - "3000:3000" # Keep for direct access (optional)
     environment:
       - DATABASE_URL=postgres://postgres:159357@db:5432/hakaton_db
     networks:
@@ -17,7 +17,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.main.rule=Host(`hyper-ist.mooo.com`)"
       - "traefik.http.services.main.loadbalancer.server.port=3000"
-      - "traefik.http.routers.main.entrypoints=web"
+      - "traefik.http.routers.main.entrypoints=web,websecure" # Add websecure for HTTPS
 
   traefik:
     image: traefik:v2.5
@@ -25,10 +25,16 @@ services:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443" # Add HTTPS entrypoint
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true" # Enable ACME for Let's Encrypt
+      - "--certificatesresolvers.myresolver.acme.email=yura.volkovskiy.2006@gmail.com" # Your email for Let's Encrypt
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json" # Store certificates
     ports:
-      - "8088:80"
+      - "80:80" # Map HTTP to host port 80
+      - "443:443" # Map HTTPS to host port 443
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./letsencrypt:/letsencrypt # Persist ACME certificates
     networks:
       - app-network
 
