@@ -2,7 +2,6 @@ const express = require("express");
 const app = express();
 const port = 3000; // Порт для HTTPS
 const http = require('http');
-const fs = require("fs");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
@@ -29,8 +28,6 @@ const {
 	UserInfo,
 	sequelize,
 } = require("./app/models/modelsDB");
-const privateKey = fs.readFileSync("localhost+2-key.pem");
-const certificate = fs.readFileSync("localhost+2.pem");
 const { Op, where } = require("sequelize");
 const passport = require("passport");
 const si = require("systeminformation");
