@@ -18,20 +18,39 @@ services:
       - "traefik.http.routers.main.entrypoints=web,websecure"
       - "traefik.http.routers.main.tls=true"
       - "traefik.http.routers.main.tls.certresolver=myresolver"
+      # Health check (recommended)
+      - "traefik.http.services.main.loadbalancer.healthcheck.path=/"
+      - "traefik.http.services.main.loadbalancer.healthcheck.interval=10s"
 
   traefik:
     image: traefik:v2.5
     command:
+      # Providers
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
+      # Entrypoints
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
+      # TLS/ACME
       - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
       - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
       - "--certificatesresolvers.myresolver.acme.email=your-email@example.com"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      # Logging configuration
+      - "--log.level=DEBUG"
+      - "--accesslog=true"
+      - "--accesslog.filters.statuscodes=400-599"
+      - "--accesslog.fields.headers.defaultmode=keep"
+      - "--accesslog.fields.headers.names.User-Agent=keep"
+      - "--accesslog.fields.headers.names.Authorization=keep"
+      - "--accesslog.fields.headers.names.Content-Type=keep"
+      # Enable Traefik dashboard (for debugging)
+      - "--api.dashboard=true"
+      - "--api.insecure=true" # Only for debugging, disable in production
     ports:
+      - "80:80"
       - "443:443"
+      - "8080:8080" # Dashboard port
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./letsencrypt:/letsencrypt
