@@ -48,7 +48,6 @@ services:
       - "--api.dashboard=true"
       - "--api.insecure=true" # Only for debugging, disable in production
     ports:
-      - "80:80"
       - "443:443"
       - "8080:8080" # Dashboard port
     volumes:
