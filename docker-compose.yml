@@ -5,8 +5,8 @@ services:
     build:
       context: .
       dockerfile: ./main/Dockerfile
-    expose:
-      - "3000"
+    ports:
+      - "3000:3000"
     environment:
       - DATABASE_URL=postgres://postgres:159357@db:5432/hakaton_db
     networks:
