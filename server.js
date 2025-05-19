@@ -18,11 +18,18 @@ const {
 	logoutUser,
 } = require("./app/controllers/auth");
 const session = require("express-session");
-const { Role, Account } = require("./app/models/modelsDB");
+const {
+	Role,
+	Account,
+	SettingTicket,
+	GeneratedTicket,
+	FilledTicket,
+} = require("./app/models/modelsDB");
 const privateKey = fs.readFileSync("localhost+2-key.pem");
 const certificate = fs.readFileSync("localhost+2.pem");
 const { Op, where } = require("sequelize");
 const passport = require("passport");
+const si = require("systeminformation");
 
 app.use(passport.initialize());
 app.use(
@@ -43,15 +50,36 @@ app.use(
 	})
 );
 
-function generatePassword() {
-	var length = 8,
-		charset =
-			"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-	let res = "";
-	for (var i = 0, n = charset.length; i < length; ++i) {
-		res += charset.charAt(Math.floor(Math.random() * n));
+async function generateRandomNumber(min, max) {
+	try {
+		// Получаем системные параметры
+		const cpu = await si.cpu();
+		const cpuTemp = await si.cpuTemperature();
+		const fanSpeeds = await si.fan();
+		const cpuLoad = await si.currentLoad();
+		const time = Date.now();
+
+		// Комбинируем параметры в одно число
+		let seed = 0;
+		seed += parseFloat(cpu.speed) || 0; // Скорость процессора (ГГц)
+		seed += parseFloat(cpuTemp.main) || 0; // Температура процессора (°C)
+		seed += fanSpeeds.length > 0 ? parseFloat(fanSpeeds[0].speed) : 0; // Скорость вентилятора (об/мин)
+		seed += parseFloat(cpuLoad.currentLoad) || 0; // Загрузка процессора (%)
+		seed += time; // Текущее время (миллисекунды)
+
+		// Умножаем для усиления вариативности
+		seed = Math.floor(seed * 1000);
+
+		// Приводим к диапазону [min, max]
+		const range = max - min + 1;
+		const randomNumber = min + (seed % range);
+
+		return randomNumber;
+	} catch (error) {
+		console.error("Ошибка при получении системных данных:", error);
+		// Запасной вариант: используем Math.random в случае ошибки
+		return Math.floor(min + Math.random() * (max - min + 1));
 	}
-	return res;
 }
 
 const isAdmin = async (req, res, next) => {
@@ -61,6 +89,7 @@ const isAdmin = async (req, res, next) => {
 			where: { token: token_body },
 		});
 		if (acc.role_id == 1) {
+			// 1 - role_id администратора
 			return next();
 		}
 		res.sendStatus(403);
@@ -69,13 +98,14 @@ const isAdmin = async (req, res, next) => {
 	}
 };
 
-const isPartner = async (req, res, next) => {
+const isUser = async (req, res, next) => {
 	try {
 		const token_body = req.headers.Authorization;
 		const acc = await Account.findOne({
 			where: { token: token_body },
 		});
 		if (acc.role_id == 2) {
+			// 2 - role_id пользователя
 			return next();
 		}
 		res.sendStatus(403);
@@ -84,42 +114,13 @@ const isPartner = async (req, res, next) => {
 	}
 };
 
-const isVolonter = async (req, res, next) => {
-	try {
-		const token_body = req.headers.Authorization;
-		const acc = await Account.findOne({
-			where: { token: token_body },
-		});
-		if (acc.role_id == 3) {
-			return next();
-		}
-		res.sendStatus(403);
-	} catch {
-		res.sendStatus(403);
-	}
-};
-
-// Маршрут для регистрации волонтёра
-app.post("/register_volonter", async (req, res) => {
+// Маршрут для регистрации
+app.post("/register_user", async (req, res) => {
 	const { login, password } = req.body;
 	if (!login || !password) {
 		return res.status(400).json({ message: "Не все поля указаны" });
 	}
-	const result = await registerUser({ login, password, role_id: 3 });
-	if (result.success) {
-		res.json(result.user);
-	} else {
-		res.status(400).json({ message: result.message });
-	}
-});
-
-// Маршрут для регистрации партнёра
-app.post("/register_partner", async (req, res) => {
-	const { login, password } = req.body;
-	if (!login || !password) {
-		return res.status(400).json({ message: "Не все поля указаны" });
-	}
-	const result = await registerUser({ login, password, role_id: 2 });
+	const result = await registerUser({ login, password, role_id: 2 }); // 2 - role_id пользователя
 	if (result.success) {
 		res.json(result.user);
 	} else {
@@ -183,34 +184,6 @@ app.delete(
 		} else {
 			res.status(400).json({ message: result.message });
 		}
-	}
-);
-
-// Защищённые маршруты для ролей
-app.get(
-	"/admin",
-	passport.authenticate("jwt", { session: false }),
-	isAdmin,
-	(req, res) => {
-		res.json({ message: "Доступ для администратора", user: req.user });
-	}
-);
-
-app.get(
-	"/partner",
-	passport.authenticate("jwt", { session: false }),
-	isPartner,
-	(req, res) => {
-		res.json({ message: "Доступ для партнера", user: req.user });
-	}
-);
-
-app.get(
-	"/volonter",
-	passport.authenticate("jwt", { session: false }),
-	isVolonter,
-	(req, res) => {
-		res.json({ message: "Доступ для волонтера", user: req.user });
 	}
 );
 

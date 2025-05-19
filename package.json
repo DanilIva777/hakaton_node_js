@@ -21,7 +21,8 @@
     "pg-hstore": "^2.3.4",
     "sequelize": "^6.37.7",
     "sequelize-cli": "^6.6.2",
-    "serve-static": "^1.16.2"
+    "serve-static": "^1.16.2",
+    "systeminformation": "^5.25.11"
   },
   "scripts": {
     "start": "node server.js"
