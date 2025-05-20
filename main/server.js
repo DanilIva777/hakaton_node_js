@@ -1653,8 +1653,8 @@ app.post("/filled_ticket", isUser, async (req, res) => {
 		}
 
 		if (
-			!Array.isArray(arr_multiplier_number) ||
-			arr_multiplier_number.length === 0
+			Array.isArray(arr_multiplier_number) &&
+			arr_multiplier_number.length !== 0
 		) {
 			// Валидация arr_multiplier_number
 			const gridSize = settingTicket.count_number_row[0]; // Assuming square grid
