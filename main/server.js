@@ -1602,19 +1602,12 @@ app.post("/filled_ticket", isUser, async (req, res) => {
 				.json({ message: "Информация о пользователе не найдена" });
 		}
 
-		// Находим generated_ticket
-		const generatedTicket = await GeneratedTicket.findOne({
-			where: { id: id_generated_ticket },
-		});
-		if (!generatedTicket) {
-			return res.status(404).json({
-				message: "Generated ticket не найден",
-			});
-		}
-
 		// Находим настройку билета
 		const settingTicket = await SettingTicket.findOne({
-			where: { id: generatedTicket.id_setting_ticket, is_start: true },
+			where: {
+				id: id_generated_ticket,
+				is_start: true,
+			},
 		});
 		if (!settingTicket) {
 			return res.status(404).json({
