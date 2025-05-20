@@ -94,108 +94,176 @@ async function generateTicketNumbers(count_number_row) {
 
 async function createGeneratedTicket(setting) {
 	try {
-		const currentDate = new Date();
-		const arr_number = await generateTicketNumbers(
-			setting.count_number_row
+	  const currentDate = new Date();
+	  const arr_number = await generateTicketNumbers(setting.count_number_row);
+	  const countFillUser = setting.count_fill_user;
+  
+	  if (countFillUser > arr_number.length) {
+		throw new Error(
+		  "count_fill_user не может быть больше количества чисел в arr_number"
 		);
-		const countFillUser = setting.count_fill_user;
-		if (countFillUser > arr_number.length) {
-			throw new Error(
-				"count_fill_user не может быть больше количества чисел в arr_number"
-			);
+	  }
+  
+	  const arr_true_number = [...arr_number]
+		.sort(() => 0.5 - Math.random())
+		.slice(0, countFillUser);
+  
+	  const transaction = await sequelize.transaction();
+	  try {
+		const newGeneratedTicket = await GeneratedTicket.create(
+		  {
+			id_setting_ticket: setting.id,
+			date_generated: currentDate.toISOString().split("T")[0],
+			time_generated: currentDate.toTimeString().split(" ")[0],
+			arr_number: arr_number,
+			arr_true_number: arr_true_number,
+		  },
+		  { transaction }
+		);
+  
+		const filledTickets = await FilledTicket.findAll({
+		  where: {
+			id_ticket: setting.id,
+			is_win: null,
+		  },
+		  include: [{ model: UserInfo, as: "user" }],
+		  transaction,
+		});
+  
+		// Prize calculation parameters
+		const N = arr_number.length; // Total numbers available (based on arr_number)
+		const K = countFillUser; // Numbers to select
+		const ticketPrice = parseFloat(setting.price_ticket) || 100;
+		const prizeFundRate = parseFloat(setting.percent_fond) / 100 || 0.5;
+		const winningCategories = [4, 3, 2].filter((m) => m <= K); // Only include categories up to K
+  
+		// Combinatorial function
+		function C(n, k) {
+		  if (k > n || k < 0) return 0;
+		  let res = 1;
+		  for (let i = 1; i <= k; i++) {
+			res *= (n - i + 1) / i;
+		  }
+		  return res;
 		}
-		const arr_true_number = [...arr_number]
-			.sort(() => 0.5 - Math.random())
-			.slice(0, countFillUser);
-
-		const transaction = await sequelize.transaction();
-		try {
-			const newGeneratedTicket = await GeneratedTicket.create(
-				{
-					id_setting_ticket: setting.id,
-					date_generated: currentDate.toISOString().split("T")[0],
-					time_generated: currentDate.toTimeString().split(" ")[0],
-					arr_number: arr_number,
-					arr_true_number: arr_true_number,
-				},
-				{ transaction }
-			);
-
-			const filledTickets = await FilledTicket.findAll({
-				where: {
-					id_ticket: setting.id,
-					is_win: null,
-				},
-				include: [{ model: UserInfo, as: "user" }],
-				transaction,
+  
+		// Probability function
+		function probability(m) {
+		  return (C(K, m) * C(N - K, K - m)) / C(N, K);
+		}
+  
+		// Calculate prizes
+		const totalPlayers = filledTickets.length;
+		const totalFund = totalPlayers * ticketPrice * prizeFundRate;
+		let remainingFund = totalFund;
+  
+		const baseAlpha = 0.752925;
+		const n = winningCategories.length;
+		const alphaDecay = 0.02 + 0.01 * n;
+		const alpha = Math.max(baseAlpha - alphaDecay * Math.pow(n, 3), 0.4);
+  
+		// Step 1: Calculate weights
+		const weights = winningCategories.map((m) => {
+		  const P = probability(m);
+		  return P > 0 ? 1 / Math.pow(P, alpha) : 0;
+		});
+  
+		const totalWeight = weights.reduce((a, b) => a + b, 0);
+  
+		// Step 2: Distribute prize fund
+		const categories = winningCategories.map((m, index) => {
+		  const P = probability(m);
+		  const expectedWinners = totalPlayers * P;
+		  const weight = weights[index];
+  
+		  let categoryPrize;
+		  if (index === n - 1) {
+			categoryPrize = remainingFund; // Last category gets remaining fund
+		  } else {
+			categoryPrize = totalWeight > 0 ? (totalFund * weight / totalWeight) : 0;
+			remainingFund -= categoryPrize;
+		  }
+  
+		  const minWinners = Math.max(expectedWinners, 1);
+		  const prizePerWinner = categoryPrize / minWinners;
+  
+		  return {
+			m,
+			prizePerWinner,
+		  };
+		});
+  
+		for (const filledTicket of filledTickets) {
+		  const userInfo = filledTicket.user;
+  
+		  // Count matches
+		  const userNumbers = filledTicket.multiplier_numbers || [];
+		  const matches = userNumbers.filter((num) =>
+			arr_true_number.includes(num)
+		  ).length;
+  
+		  let payout = 0;
+		  let isWin = false;
+  
+		  // Check if the user has enough matches to win
+		  const winningCategory = categories.find((cat) => cat.m <= matches);
+		  if (winningCategory) {
+			const multiplier = parseFloat(filledTicket.multiplier) || 1;
+			const priceFactor = multiplierFactors[multiplier] || 1; // Assumes multiplierFactors is defined
+			payout = (
+			  winningCategory.prizePerWinner * priceFactor * multiplier
+			).toFixed(2);
+			isWin = true;
+  
+			// Update user balance
+			userInfo.balance_real = (
+			  parseFloat(userInfo.balance_real || "0") + parseFloat(payout)
+			).toFixed(2);
+			await userInfo.save({ transaction });
+  
+			// Record transaction
+			const typeTransaction = await TypeTransaction.findOne({
+			  where: { naim: "Выигрыш в лото (реальная валюта)" },
+			  transaction,
 			});
-
-			for (const filledTicket of filledTickets) {
-				const userInfo = filledTicket.user;
-
-				const isDiagonalMatch = await checkDiagonalMatch(
-					filledTicket.multiplier_numbers || [],
-					setting.id,
-					setting.count_number_row
-				);
-
-				let payout = 0;
-				if (isDiagonalMatch) {
-					const multiplier = parseFloat(filledTicket.multiplier) || 1;
-					const priceFactor = multiplierFactors[multiplier] || 1;
-					const basePrice = parseFloat(setting.price_ticket) || 0;
-					payout = (basePrice * priceFactor * multiplier).toFixed(2);
-
-					userInfo.balance_real = (
-						parseFloat(userInfo.balance_real || 0) +
-						parseFloat(payout)
-					).toFixed(2);
-					await userInfo.save({ transaction });
-
-					const typeTransaction = await TypeTransaction.findOne({
-						where: { naim: "Выигрыш в лото (реальная валюта)" },
-						transaction,
-					});
-					if (!typeTransaction) {
-						throw new Error(
-							"Тип транзакции 'Выигрыш в лото (реальная валюта)' не найден"
-						);
-					}
-
-					await HistoryOperation.create(
-						{
-							id_user: userInfo.id,
-							change: payout,
-							type_transaction: typeTransaction.id,
-							is_succesfull: true,
-							date: newGeneratedTicket.date_generated,
-							time: newGeneratedTicket.time_generated,
-						},
-						{ transaction }
-					);
-				}
-
-				await filledTicket.update(
-					{ is_win: isDiagonalMatch },
-					{ transaction }
-				);
+			if (!typeTransaction) {
+			  throw new Error(
+				"Тип транзакции 'Выигрыш в лото (реальная валюта)' не найден"
+			  );
 			}
-
-			await transaction.commit();
-			return newGeneratedTicket;
-		} catch (error) {
-			await transaction.rollback();
-			console.error("Ошибка при создании GeneratedTicket:", error);
-			throw error;
+  
+			await HistoryOperation.create(
+			  {
+				id_user: userInfo.id,
+				change: payout,
+				type_transaction: typeTransaction.id,
+				is_succesfull: true,
+				date: newGeneratedTicket.date_generated,
+				time: newGeneratedTicket.time_generated,
+			  },
+			  { transaction }
+			);
+		  }
+  
+		  // Update ticket status
+		  await filledTicket.update({ is_win: isWin }, { transaction });
 		}
-	} catch (error) {
-		console.error(
-			`Ошибка в createGeneratedTicket для setting ID: ${setting.id}:`,
-			error
-		);
+  
+		await transaction.commit();
+		return newGeneratedTicket;
+	  } catch (error) {
+		await transaction.rollback();
+		console.error("Ошибка при создании GeneratedTicket:", error);
 		throw error;
+	  }
+	} catch (error) {
+	  console.error(
+		`Ошибка в createGeneratedTicket для setting ID: ${setting.id}:`,
+		error
+	  );
+	  throw error;
 	}
-}
+  }
 
 const multiplierFactors = {
 	1.25: 2.5,
