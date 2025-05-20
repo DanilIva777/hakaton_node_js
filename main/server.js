@@ -1382,6 +1382,159 @@ function checkDiagonalMatch(arrMultiplierNumber, trueNumbers, countNumberRow) {
 	return true;
 }
 
+app.get("/filled_ticket", isUser, async (req, res) => {
+	try {
+		// Получение токена из заголовка авторизации
+		const token = req.headers.authorization;
+
+		// Находим аккаунт пользователя по токену
+		const account = await Account.findOne({
+			where: { token },
+			attributes: ["id"],
+		});
+		if (!account) {
+			return res.status(401).json({
+				success: false,
+				message: "Пользователь не найден",
+			});
+		}
+
+		// Находим информацию о пользователе
+		const userInfo = await UserInfo.findOne({
+			where: { id_acc: account.id },
+			attributes: ["id"],
+		});
+		if (!userInfo) {
+			return res.status(404).json({
+				success: false,
+				message: "Информация о пользователе не найдена",
+			});
+		}
+
+		// Получаем все талоны пользователя, отсортированные по убыванию даты
+		const filledTickets = await FilledTicket.findAll({
+			where: { id_user: userInfo.id },
+			attributes: [
+				"id",
+				"id_user",
+				"id_ticket",
+				"date",
+				"time",
+				"filled_cell",
+				"is_win",
+				"id_history_operation",
+			],
+			order: [
+				["date", "DESC"],
+				["time", "DESC"],
+			], // Сортировка по дате и времени по убыванию
+			include: [
+				{
+					model: GeneratedTicket,
+					as: "ticket",
+					attributes: [
+						"id",
+						"id_setting_ticket",
+						"arr_number",
+						"arr_true_number",
+					],
+					include: [
+						{
+							model: SettingTicket,
+							as: "setting_ticket",
+							attributes: [
+								"id",
+								"price_ticket",
+								"count_number_row",
+								"count_fill_user",
+							],
+						},
+					],
+				},
+				{
+					model: HistoryOperation,
+					as: "history",
+					attributes: [
+						"id",
+						"change",
+						"type_transaction",
+						"is_succesfull",
+					],
+					include: [
+						{
+							model: TypeTransaction,
+							as: "transaction_type",
+							attributes: ["id", "naim"],
+						},
+					],
+				},
+			],
+		});
+
+		const formattedTickets = filledTickets.map((ticket) => ({
+			id: ticket.id,
+			user_id: ticket.id_user,
+			ticket_id: ticket.id_ticket,
+			date: ticket.date,
+			time: ticket.time,
+			filled_cell: ticket.filled_cell,
+			is_win: ticket.is_win,
+			history_operation_id: ticket.id_history_operation,
+			generated_ticket: ticket.ticket
+				? {
+						id: ticket.ticket.id,
+						setting_ticket_id: ticket.ticket.id_setting_ticket,
+						numbers: ticket.ticket.arr_number,
+						winning_numbers: ticket.ticket.arr_true_number,
+						setting: ticket.ticket.setting_ticket
+							? {
+									id: ticket.ticket.setting_ticket.id,
+									price: parseFloat(
+										String(
+											ticket.ticket.setting_ticket
+												.price_ticket
+										).replace(/[^0-9.]/g, "")
+									),
+									count_number_row:
+										ticket.ticket.setting_ticket
+											.count_number_row,
+									count_fill_user:
+										ticket.ticket.setting_ticket
+											.count_fill_user,
+							  }
+							: null,
+				  }
+				: null,
+			history: ticket.history
+				? {
+						id: ticket.history.id,
+						change: parseFloat(
+							String(ticket.history.change).replace(
+								/[^0-9.]/g,
+								""
+							)
+						),
+						type_transaction: ticket.history.transaction_type
+							? ticket.history.transaction_type.naim
+							: null,
+						is_successful: ticket.history.is_succesfull,
+				  }
+				: null,
+		}));
+
+		res.status(200).json({
+			success: true,
+			tickets: formattedTickets,
+		});
+	} catch (error) {
+		console.error("Ошибка при получении талонов пользователя:", error);
+		res.status(500).json({
+			success: false,
+			message: "Ошибка сервера: " + error.message,
+		});
+	}
+});
+
 // Ручка для создания записи в таблице filled_ticket (только для пользователя)
 app.post("/filled_ticket", isUser, async (req, res) => {
 	try {
