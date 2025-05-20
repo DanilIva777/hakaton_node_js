@@ -576,7 +576,7 @@ app.post("/register_user", async (req, res) => {
 
 		res.json({
 			success: true,
-			token: result.token,
+			token: result.user.token,
 			user: {
 				id: result.user.id,
 				login: result.user.login,
