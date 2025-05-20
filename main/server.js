@@ -2032,11 +2032,11 @@ function checkCompletions(grid, setting) {
 }
 
 app.post("/game/start", isUser, async (req, res) => {
-	const { id_setting_game } = req.body;
-	const token = req.headers.authorization.replace("Bearer ", "");
-	const transaction = await sequelize.transaction();
-
 	try {
+		const { id_setting_game } = req.body;
+		const token = req.headers.authorization.replace("Bearer ", "");
+		const transaction = await sequelize.transaction();
+
 		const account = await Account.findOne({ where: { token } });
 		if (!account) {
 			await transaction.rollback();
@@ -2156,7 +2156,9 @@ app.post("/game/start", isUser, async (req, res) => {
 			},
 		});
 	} catch (error) {
-		await transaction.rollback();
+		try {
+			await transaction.rollback();
+		} catch {}
 		console.error("Ошибка при создании или получении игры:", error);
 		res.status(500).json({
 			success: false,
@@ -2166,10 +2168,11 @@ app.post("/game/start", isUser, async (req, res) => {
 });
 
 app.post("/game/move", isUser, async (req, res) => {
-	const { game_id, cells } = req.body; // cells: { row: number, col: number }
-	const token = req.headers.authorization.replace("Bearer ", "");
-	const transaction = await sequelize.transaction();
 	try {
+		const { game_id, cells } = req.body; // cells: { row: number, col: number }
+		const token = req.headers.authorization.replace("Bearer ", "");
+		const transaction = await sequelize.transaction();
+
 		const account = await Account.findOne({ where: { token } });
 		if (!account) {
 			await transaction.rollback();
@@ -2294,7 +2297,9 @@ app.post("/game/move", isUser, async (req, res) => {
 			payout,
 		});
 	} catch (error) {
-		await transaction.rollback();
+		try {
+			await transaction.rollback();
+		} catch {}
 		console.error("Ошибка при выполнении хода:", error);
 		res.status(500).json({
 			success: false,
@@ -2402,11 +2407,11 @@ function checkCompletions(grid, setting) {
 }
 
 app.post("/game/skip", isUser, async (req, res) => {
-	const { game_id } = req.body;
-	const token = req.headers.authorization.replace("Bearer ", "");
-	const transaction = await sequelize.transaction();
-
 	try {
+		const { game_id } = req.body;
+		const token = req.headers.authorization.replace("Bearer ", "");
+		const transaction = await sequelize.transaction();
+
 		const account = await Account.findOne({ where: { token } });
 		if (!account) {
 			await transaction.rollback();
@@ -2506,7 +2511,9 @@ app.post("/game/skip", isUser, async (req, res) => {
 			new_balance: parseFloat(userInfo.balance_real),
 		});
 	} catch (error) {
-		await transaction.rollback();
+		try {
+			await transaction.rollback();
+		} catch {}
 		console.error("Ошибка при пропуске хода:", error);
 		res.status(500).json({
 			success: false,
@@ -2516,11 +2523,10 @@ app.post("/game/skip", isUser, async (req, res) => {
 });
 
 app.post("/game/end", isUser, async (req, res) => {
-	const { game_id } = req.body;
-	const token = req.headers.authorization.replace("Bearer ", "");
-	const transaction = await sequelize.transaction();
-
 	try {
+		const { game_id } = req.body;
+		const token = req.headers.authorization.replace("Bearer ", "");
+		const transaction = await sequelize.transaction();
 		const account = await Account.findOne({ where: { token } });
 		if (!account) {
 			await transaction.rollback();
@@ -2565,7 +2571,9 @@ app.post("/game/end", isUser, async (req, res) => {
 			},
 		});
 	} catch (error) {
-		await transaction.rollback();
+		try {
+			await transaction.rollback();
+		} catch {}
 		console.error("Ошибка при завершении игры:", error);
 		res.status(500).json({
 			success: false,
