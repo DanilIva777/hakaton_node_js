@@ -2225,37 +2225,29 @@ app.post("/game/move", isUser, async (req, res) => {
 	try {
 		const { game_id, cells } = req.body; // cells: { row: number, col: number }
 		const token = req.headers.authorization.replace("Bearer ", "");
-		const transaction = await sequelize.transaction();
 
+		// Поиск аккаунта
 		const account = await Account.findOne({ where: { token } });
 		if (!account) {
-			try {
-				await transaction.rollback();
-			} catch {}
 			return res.status(401).json({ message: "Пользователь не найден" });
 		}
 
+		// Поиск информации о пользователе
 		const userInfo = await UserInfo.findOne({
 			where: { id_acc: account.id },
 		});
 		if (!userInfo) {
-			try {
-				await transaction.rollback();
-			} catch {}
 			return res
 				.status(404)
 				.json({ message: "Информация о пользователе не найдена" });
 		}
 
+		// Поиск активной игры
 		const game = await Game.findOne({
 			where: { id: game_id, id_user: userInfo.id, is_active: true },
 			include: [{ model: SettingGame, as: "setting" }],
-			transaction,
 		});
 		if (!game) {
-			try {
-				await transaction.rollback();
-			} catch {}
 			return res
 				.status(404)
 				.json({ message: "Игра не найдена или неактивна" });
@@ -2263,17 +2255,11 @@ app.post("/game/move", isUser, async (req, res) => {
 
 		const { row, col } = cells;
 		if (game.grid[row][col] !== 0) {
-			try {
-				await transaction.rollback();
-			} catch {}
 			return res.status(400).json({ message: "Клетка уже заполнена" });
 		}
 
 		// Проверка допустимости числа
 		if (!canPlaceNumber(game.grid, row, col, game.current_number)) {
-			try {
-				await transaction.rollback();
-			} catch {}
 			return res.status(400).json({
 				message: "Нельзя поставить это число сюда",
 				invalid_cells: checkInvalidCells(
@@ -2289,42 +2275,32 @@ app.post("/game/move", isUser, async (req, res) => {
 		const cost =
 			parseFloat(game.current_move_cost) +
 			game.skip_count * parseFloat(game.setting.initial_skill_cost);
-		console.log(
-			"BALANCE",
-			userInfo.balance_virtual?.replace("$", "")?.replace(/,/g, "")
+		const currentBalance = parseFloat(
+			userInfo.balance_virtual?.replace("$", "")?.replace(/,/g, "") || "0"
 		);
-		if (
-			userInfo.balance_virtual?.replace("$", "")?.replace(/,/g, "") < cost
-		) {
-			try {
-				await transaction.rollback();
-			} catch {}
+		if (currentBalance < cost) {
 			return res.status(400).json({ message: "Недостаточно бонусов" });
 		}
 
 		// Обновление сетки
-		game.grid[row][col] = game.current_number;
+		const newGrid = [...game.grid]; // Создаем копию grid
+		newGrid[row][col] = game.current_number;
+		game.grid = newGrid;
 
 		// Обновление баланса и ставок
-		userInfo.bonus_balance = userInfo.balance_virtual
-			?.replace("$", "")
-			?.replace(/,/g, "");
-		-cost;
+		userInfo.bonus_balance = currentBalance - cost;
 		game.total_bets = parseFloat(game.total_bets) + cost;
 		game.skip_count = 0;
 		game.current_move_cost = parseFloat(game.setting.base_move_cost);
 
 		// Проверка завершений
 		const { payout, updatedGrid } = checkCompletions(
-			game.grid,
+			[...game.grid],
 			game.setting
 		);
-		game.grid = updatedGrid;
+		game.grid = JSON.parse(JSON.stringify(updatedGrid)); // Гарантируем новый объект
 		game.total_payouts = parseFloat(game.total_payouts) + payout;
-		userInfo.bonus_balance = userInfo.balance_virtual
-			?.replace("$", "")
-			?.replace(/,/g, "");
-		+payout;
+		userInfo.bonus_balance = userInfo.bonus_balance + payout;
 
 		// Генерация нового числа
 		game.current_number = await generateRandomNumber(1, 9);
@@ -2338,11 +2314,12 @@ app.post("/game/move", isUser, async (req, res) => {
 		}
 
 		// Сохранение изменений
-		await userInfo.save({ transaction });
-		game.grid = JSON.parse(JSON.stringify(updatedGrid));
-		await game.save({ transaction });
-		await transaction.commit();
+		console.log("Перед сохранением:", { userInfo, game });
+		await userInfo.save();
+		await game.save();
+		console.log("После сохранения:", { userInfo, game });
 
+		// Ответ клиенту
 		res.status(200).json({
 			success: true,
 			game: {
@@ -2356,17 +2333,12 @@ app.post("/game/move", isUser, async (req, res) => {
 				is_active: game.is_active,
 				date_created: game.date_created,
 				time_created: game.time_created,
-				bonus_balance: userInfo.balance_virtual
-					?.replace("$", "")
-					?.replace(/,/g, ""),
+				bonus_balance: userInfo.bonus_balance,
 				real_balance: userInfo.real_balance || 10.0,
 			},
 			payout,
 		});
 	} catch (error) {
-		try {
-			await transaction.rollback();
-		} catch {}
 		console.error("Ошибка при выполнении хода:", error);
 		res.status(500).json({
 			success: false,
