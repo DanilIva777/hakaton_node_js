@@ -201,12 +201,12 @@ async function createGeneratedTicket(setting) {
 				};
 			});
 
-			console.log("CATEGORIES", categories);``
+			console.log("CATEGORIES", categories);
 			for (const filledTicket of filledTickets) {
 				const userInfo = filledTicket.user;
 
 				// Count matches
-				const userNumbers = filledTicket.multiplier_numbers || [];
+				const userNumbers = filledTicket.filled_cell || [];
 				const matches = userNumbers.filter((num) =>
 					arr_true_number.includes(num)
 				).length;
@@ -218,6 +218,7 @@ async function createGeneratedTicket(setting) {
 				const winningCategory = categories.find(
 					(cat) => cat.m <= matches
 				);
+
 				if (winningCategory) {
 					const multiplier = parseFloat(filledTicket.multiplier) || 1;
 					const priceFactor = multiplierFactors[multiplier] || 1; // Assumes multiplierFactors is defined
@@ -229,20 +230,25 @@ async function createGeneratedTicket(setting) {
 					isWin = true;
 
 					// Update user balance
-					userInfo.balance_real = (
-						parseFloat(userInfo.balance_real || "0") +
-						parseFloat(payout)
-					).toFixed(2);
+					userInfo.balance_real = Number(
+						(
+							parseFloat(
+								userInfo.balance_real?.replace("$", "") || "0"
+							) + parseFloat(payout)
+						).toFixed(2)
+					);
 					await userInfo.save({ transaction });
 
 					// Record transaction
 					const typeTransaction = await TypeTransaction.findOne({
-						where: { naim: "Выигрыш в лото (реальная валюта)" },
+						where: {
+							naim: "Выигрыш в лото или играх (реальная валюта)",
+						},
 						transaction,
 					});
 					if (!typeTransaction) {
 						throw new Error(
-							"Тип транзакции 'Выигрыш в лото (реальная валюта)' не найден"
+							"Тип транзакции 'Выигрыш в лото или играх (реальная валюта)' не найден"
 						);
 					}
 
