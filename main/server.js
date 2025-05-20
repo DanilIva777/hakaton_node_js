@@ -2316,6 +2316,7 @@ app.post("/game/move", isUser, async (req, res) => {
 		// Сохранение изменений
 		console.log("Перед сохранением:", { userInfo, game: game.grid });
 		await userInfo.save();
+		game.changed("grid", true);
 		await game.save();
 		console.log("После сохранения:", { userInfo, game: game.grid });
 
