@@ -233,7 +233,9 @@ async function createGeneratedTicket(setting) {
 					userInfo.balance_real = Number(
 						(
 							parseFloat(
-								userInfo.balance_real?.replace("$", "") || "0"
+								userInfo.balance_real
+									?.replace("$", "")
+									.replace(/,/g, "") || "0"
 							) + parseFloat(payout)
 						).toFixed(2)
 					);
@@ -856,10 +858,14 @@ app.get("/user_info", isUser, async (req, res) => {
 				},
 				info: {
 					balance_real: parseFloat(
-						userInfo.balance_real?.replace("$", "") || "0"
+						userInfo.balance_real
+							?.replace("$", "")
+							.replace(/,/g, "") || "0"
 					),
 					balance_virtual: parseFloat(
-						userInfo.balance_virtual?.replace("$", "") || "0"
+						userInfo.balance_virtual
+							?.replace("$", "")
+							.replace(/,/g, "") || "0"
 					),
 					is_vip: userInfo.is_vip || false,
 					vip_stop_date: userInfo.vip_stop_date || null,
@@ -875,7 +881,10 @@ app.get("/user_info", isUser, async (req, res) => {
 				},
 				history_operations: historyOperations.map((op) => ({
 					id: op.id,
-					amount: parseFloat(op.change?.replace("$", "")) || 0,
+					amount:
+						parseFloat(
+							op.change?.replace("$", "").replace(/,/g, "")
+						) || 0,
 					is_successful: op.is_succesfull,
 					date: op.date,
 					time: op.time,
@@ -2349,10 +2358,13 @@ app.post("/game/skip", isUser, async (req, res) => {
 
 		const setting = game.setting;
 		const skipCost = parseFloat(
-			setting.initial_skill_cost?.replace("$", "") || "0"
+			setting.initial_skill_cost?.replace("$", "").replace(/,/g, "") ||
+				"0"
 		);
 		const userBalance =
-			parseFloat(userInfo.balance_virtual)?.replace("$", "") || "0";
+			parseFloat(userInfo.balance_virtual)
+				?.replace("$", "")
+				.replace(/,/g, "") || "0";
 
 		if (userBalance < skipCost) {
 			await transaction.rollback();
