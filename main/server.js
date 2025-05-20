@@ -2558,7 +2558,7 @@ app.post("/game/skip", isUser, async (req, res) => {
 				date_created: game.date_created,
 				time_created: game.time_created,
 			},
-			new_balance: parseFloat(userInfo.balance_real),
+			new_balance: parseFloat(userInfo.balance_virtual),
 		});
 	} catch (error) {
 		try {
