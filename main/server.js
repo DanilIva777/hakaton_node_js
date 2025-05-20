@@ -2222,6 +2222,7 @@ app.post("/game/move", isUser, async (req, res) => {
 		const cost =
 			parseFloat(game.current_move_cost) +
 			game.skip_count * parseFloat(game.setting.initial_skill_cost);
+		console.log("BALANCE", userInfo.bonus_balance);
 		if (userInfo.bonus_balance < cost) {
 			await transaction.rollback();
 			return res.status(400).json({ message: "Недостаточно бонусов" });
