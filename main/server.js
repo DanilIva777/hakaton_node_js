@@ -1,8 +1,7 @@
 const express = require("express");
 const app = express();
-const port = 443; // Порт для HTTPS
-const https = require("https");
-const fs = require("fs");
+const port = 3000; // Порт для HTTPS
+const http = require('http');
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
@@ -30,9 +29,7 @@ const {
 	VipCost,
 	sequelize,
 } = require("./app/models/modelsDB");
-const privateKey = fs.readFileSync("localhost+2-key.pem");
-const certificate = fs.readFileSync("localhost+2.pem");
-const { Sequelize, Op, where } = require("sequelize");
+const { Op, where } = require("sequelize");
 const passport = require("passport");
 const si = require("systeminformation");
 
@@ -1478,39 +1475,28 @@ app.get("/history_operation", isUser, async (req, res) => {
     }
 });
 
-// Создание HTTPS сервера
-const credentials = { key: privateKey, cert: certificate };
-https.createServer(credentials, app).listen(port, () => {
-	console.log(`HTTPS-сервер запущен на https://localhost:${port}`);
+http.createServer(app).listen(port, () => {
+    console.log(`HTTP-сервер запущен на http://localhost:${port}`);
 });
 
-// Обработка сигналов завершения
 process.on("SIGINT", async () => {
-	try {
-		console.log("Получен сигнал SIGINT. Завершение работы...");
-		Object.keys(intervalJobs).forEach((settingId) => {
-			clearInterval(intervalJobs[settingId]);
-			console.log(`Cleared interval for setting ID: ${settingId}`);
-		});
-		await disconnectFromDatabase();
-	} catch (error) {
-		console.error("Ошибка при отключении от БД:", error);
-	} finally {
-		process.exit();
-	}
+    try {
+        console.log("Получен сигнал SIGINT. Завершение работы...");
+        await disconnectFromDatabase();
+    } catch (error) {
+        console.error("Ошибка при отключении от БД:", error);
+    } finally {
+        process.exit();
+    }
 });
 
 process.on("SIGTERM", async () => {
-	try {
-		console.log("Получен сигнал SIGTERM. Завершение работы...");
-		Object.keys(intervalJobs).forEach((settingId) => {
-			clearInterval(intervalJobs[settingId]);
-			console.log(`Cleared interval for setting ID: ${settingId}`);
-		});
-		await disconnectFromDatabase();
-	} catch (error) {
-		console.error("Ошибка при отключении от БД:", error);
-	} finally {
-		process.exit();
-	}
+    try {
+        console.log("Получен сигнал SIGTERM. Завершение работы...");
+        await disconnectFromDatabase();
+    } catch (error) {
+        console.error("Ошибка при отключении от БД:", error);
+    } finally {
+        process.exit();
+    }
 });
