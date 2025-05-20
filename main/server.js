@@ -2139,44 +2139,18 @@ app.post("/game/start", isUser, async (req, res) => {
 				grid: game.grid,
 				current_number: game.current_number,
 				skip_count: game.skip_count,
-				current_move_cost: parseFloat(
-					game.current_move_cost?.replace("$", "")?.replace(/,/g, "")
-				),
-				total_bets: parseFloat(
-					game.total_bets?.replace("$", "")?.replace(/,/g, "")
-				),
-				total_payouts: parseFloat(
-					game.total_payouts?.replace("$", "")?.replace(/,/g, "")
-				),
+				current_move_cost: parseFloat(game.current_move_cost),
+				total_bets: parseFloat(game.total_bets),
+				total_payouts: parseFloat(game.total_payouts),
 				is_active: game.is_active,
 				date_created: game.date_created,
 				time_created: game.time_created,
 				setting: {
-					base_move_cost: parseFloat(
-						setting.base_move_cost
-							?.replace("$", "")
-							?.replace(/,/g, "")
-					),
-					initial_skill_cost: parseFloat(
-						setting.initial_skill_cost
-							?.replace("$", "")
-							?.replace(/,/g, "")
-					),
-					payout_row_col: parseFloat(
-						setting.payout_row_col
-							?.replace("$", "")
-							?.replace(/,/g, "")
-					),
-					payout_block: parseFloat(
-						setting.payout_block
-							?.replace("$", "")
-							?.replace(/,/g, "")
-					),
-					payout_complete: parseFloat(
-						setting.payout_complete
-							?.replace("$", "")
-							?.replace(/,/g, "")
-					),
+					base_move_cost: parseFloat(setting.base_move_cost),
+					initial_skill_cost: parseFloat(setting.initial_skill_cost),
+					payout_row_col: parseFloat(setting.payout_row_col),
+					payout_block: parseFloat(setting.payout_block),
+					payout_complete: parseFloat(setting.payout_complete),
 					initial_filled_cells: setting.initial_filled_cells,
 				},
 			},
@@ -2294,15 +2268,9 @@ app.post("/game/move", isUser, async (req, res) => {
 				grid: game.grid,
 				current_number: game.current_number,
 				skip_count: game.skip_count,
-				current_move_cost: parseFloat(
-					game.current_move_cost?.replace("$", "")?.replace(/,/g, "")
-				),
-				total_bets: parseFloat(
-					game.total_bets?.replace("$", "")?.replace(/,/g, "")
-				),
-				total_payouts: parseFloat(
-					game.total_payouts?.replace("$", "")?.replace(/,/g, "")
-				),
+				current_move_cost: parseFloat(game.current_move_cost),
+				total_bets: parseFloat(game.total_bets),
+				total_payouts: parseFloat(game.total_payouts),
 				is_active: game.is_active,
 				date_created: game.date_created,
 				time_created: game.time_created,
@@ -2514,15 +2482,9 @@ app.post("/game/skip", isUser, async (req, res) => {
 				grid: game.grid,
 				current_number: game.current_number,
 				skip_count: game.skip_count,
-				current_move_cost: parseFloat(
-					game.current_move_cost?.replace("$", "")?.replace(/,/g, "")
-				),
-				total_bets: parseFloat(
-					game.total_bets?.replace("$", "")?.replace(/,/g, "")
-				),
-				total_payouts: parseFloat(
-					game.total_payouts?.replace("$", "")?.replace(/,/g, "")
-				),
+				current_move_cost: parseFloat(game.current_move_cost),
+				total_bets: parseFloat(game.total_bets),
+				total_payouts: parseFloat(game.total_payouts),
 				is_active: game.is_active,
 				date_created: game.date_created,
 				time_created: game.time_created,
@@ -2584,12 +2546,8 @@ app.post("/game/end", isUser, async (req, res) => {
 			game: {
 				id: game.id,
 				is_active: game.is_active,
-				total_bets: parseFloat(
-					game.total_bets?.replace("$", "")?.replace(/,/g, "")
-				),
-				total_payouts: parseFloat(
-					game.total_payouts?.replace("$", "")?.replace(/,/g, "")
-				),
+				total_bets: parseFloat(game.total_bets),
+				total_payouts: parseFloat(game.total_payouts),
 			},
 		});
 	} catch (error) {
