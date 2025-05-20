@@ -34,7 +34,7 @@ const Account = sequelize.define(
 		login: {
 			type: DataTypes.TEXT,
 			allowNull: false,
-			unique: true,
+			unique: true, // Добавлено для согласованности с базой данных
 		},
 		password: {
 			type: DataTypes.TEXT,
@@ -47,12 +47,12 @@ const Account = sequelize.define(
 		token: {
 			type: DataTypes.TEXT,
 			allowNull: false,
-			unique: true,
+			unique: true, // Добавлено для согласованности с базой данных
 		},
 		mail: {
 			type: DataTypes.TEXT,
 			allowNull: true,
-			unique: true,
+			unique: true, // Добавлено для согласованности с базой данных
 		},
 	},
 	{
@@ -76,23 +76,15 @@ const SettingTicket = sequelize.define(
 			allowNull: true,
 		},
 		price_ticket: {
-			type: DataTypes.DECIMAL,
+			type: DataTypes.DECIMAL(10, 2), // Уточнён тип для согласованности
 			allowNull: true,
 		},
 		percent_fond: {
-			type: DataTypes.DECIMAL,
+			type: DataTypes.DECIMAL(5, 2), // Уточнён тип для процентов
 			allowNull: true,
 		},
 		is_start: {
 			type: DataTypes.BOOLEAN,
-			allowNull: true,
-		},
-		size_x: {
-			type: DataTypes.INTEGER,
-			allowNull: true,
-		},
-		size_y: {
-			type: DataTypes.INTEGER,
 			allowNull: true,
 		},
 		count_number_row: {
@@ -207,7 +199,7 @@ const HistoryOperation = sequelize.define(
 			allowNull: false,
 		},
 		change: {
-			type: DataTypes.DECIMAL,
+			type: DataTypes.DECIMAL(10, 2), // Изменено с money на DECIMAL
 			allowNull: false,
 		},
 		type_transaction: {
@@ -217,7 +209,7 @@ const HistoryOperation = sequelize.define(
 		is_succesfull: {
 			type: DataTypes.BOOLEAN,
 			allowNull: false,
-			defaultValue: false,
+			defaultValue: false, // Добавлено для согласованности
 		},
 		date: {
 			type: DataTypes.DATEONLY,
@@ -270,12 +262,30 @@ const UserInfo = sequelize.define(
 			allowNull: false,
 		},
 		balance_virtual: {
-			type: DataTypes.DECIMAL,
+			type: DataTypes.DECIMAL(10, 2), // Изменено с money на DECIMAL
 			allowNull: false,
 		},
 		balance_real: {
-			type: DataTypes.DECIMAL,
+			type: DataTypes.DECIMAL(10, 2), // Изменено с money на DECIMAL
 			allowNull: false,
+		},
+		is_vip: {
+			type: DataTypes.BOOLEAN,
+			allowNull: true,
+			defaultValue: false, // Добавлено для согласованности
+		},
+		vip_stop_date: {
+			type: DataTypes.DATEONLY,
+			allowNull: true,
+		},
+		vip_stop_time: {
+			type: DataTypes.TIME,
+			allowNull: true,
+		},
+		category_vip: {
+			// Добавлено поле, отсутствующее в исходной модели
+			type: DataTypes.INTEGER,
+			allowNull: true,
 		},
 	},
 	{
@@ -285,12 +295,50 @@ const UserInfo = sequelize.define(
 	}
 );
 
+// Определение модели VipCost
+const VipCost = sequelize.define(
+	"VipCost",
+	{
+		id: {
+			type: DataTypes.INTEGER,
+			primaryKey: true,
+			autoIncrement: true,
+		},
+		naim: {
+			type: DataTypes.TEXT,
+			allowNull: true,
+		},
+		price: {
+			type: DataTypes.DECIMAL(10, 2),
+			allowNull: false,
+			validate: {
+				min: 0,
+			},
+		},
+		count_day: {
+			type: DataTypes.INTEGER,
+			allowNull: false,
+			validate: {
+				min: 1,
+			},
+		},
+		category: {
+			// Добавлено поле, отсутствующее в исходной модели
+			type: DataTypes.INTEGER,
+			allowNull: true,
+		},
+	},
+	{
+		tableName: "vip_cost",
+		schema: "public",
+		timestamps: false,
+	}
+);
+
 // Определение связей
-// Связь account -> role (многие к одному)
 Role.hasMany(Account, { foreignKey: "role_id", as: "accounts" });
 Account.belongsTo(Role, { foreignKey: "role_id", as: "role" });
 
-// Связь generated_ticket -> setting_ticket (многие к одному)
 SettingTicket.hasMany(GeneratedTicket, {
 	foreignKey: "id_setting_ticket",
 	as: "generated_tickets",
@@ -300,11 +348,9 @@ GeneratedTicket.belongsTo(SettingTicket, {
 	as: "setting_ticket",
 });
 
-// Связь filled_ticket -> user_info (многие к одному)
 UserInfo.hasMany(FilledTicket, { foreignKey: "id_user", as: "filled_tickets" });
 FilledTicket.belongsTo(UserInfo, { foreignKey: "id_user", as: "user" });
 
-// Связь filled_ticket -> generated_ticket (многие к одному)
 GeneratedTicket.hasMany(FilledTicket, {
 	foreignKey: "id_ticket",
 	as: "filled_tickets",
@@ -314,7 +360,6 @@ FilledTicket.belongsTo(GeneratedTicket, {
 	as: "ticket",
 });
 
-// Связь filled_ticket -> history_operation (многие к одному)
 HistoryOperation.hasMany(FilledTicket, {
 	foreignKey: "id_history_operation",
 	as: "filled_tickets",
@@ -324,14 +369,12 @@ FilledTicket.belongsTo(HistoryOperation, {
 	as: "history",
 });
 
-// Связь history_operation -> user_info (многие к одному)
 UserInfo.hasMany(HistoryOperation, {
 	foreignKey: "id_user",
 	as: "history_operations",
 });
 HistoryOperation.belongsTo(UserInfo, { foreignKey: "id_user", as: "user" });
 
-// Связь history_operation -> type_transaction (многие к одному)
 TypeTransaction.hasMany(HistoryOperation, {
 	foreignKey: "type_transaction",
 	as: "history_operations",
@@ -341,9 +384,12 @@ HistoryOperation.belongsTo(TypeTransaction, {
 	as: "transaction_type",
 });
 
-// Связь user_info -> account (многие к одному)
 Account.hasOne(UserInfo, { foreignKey: "id_acc", as: "info" });
 UserInfo.belongsTo(Account, { foreignKey: "id_acc", as: "account" });
+
+// Добавлена связь между UserInfo и VipCost через category_vip
+VipCost.hasMany(UserInfo, { foreignKey: "category_vip", as: "users" });
+UserInfo.belongsTo(VipCost, { foreignKey: "category_vip", as: "vip_cost" });
 
 // Экспорт моделей
 module.exports = {
@@ -356,4 +402,5 @@ module.exports = {
 	HistoryOperation,
 	TypeTransaction,
 	UserInfo,
+	VipCost,
 };
