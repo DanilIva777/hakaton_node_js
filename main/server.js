@@ -2334,7 +2334,7 @@ app.post("/game/move", isUser, async (req, res) => {
 				is_active: game.is_active,
 				date_created: game.date_created,
 				time_created: game.time_created,
-				bonus_balance: userInfo.bonus_balance,
+				bonus_balance: userInfo.balance_virtual,
 				real_balance: userInfo.real_balance || 10.0,
 			},
 			payout,
