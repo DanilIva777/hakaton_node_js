@@ -2300,9 +2300,7 @@ app.post("/game/move", isUser, async (req, res) => {
 		);
 		game.grid = JSON.parse(JSON.stringify(updatedGrid)); // Гарантируем новый объект
 		game.total_payouts = parseFloat(game.total_payouts) + payout;
-		userInfo.balance_virtual =
-			userInfo.balance_virtual?.replace("$", "")?.replace(/,/g, "") +
-			payout;
+		userInfo.balance_virtual = userInfo.balance_virtual + payout;
 
 		// Генерация нового числа
 		game.current_number = await generateRandomNumber(1, 9);
