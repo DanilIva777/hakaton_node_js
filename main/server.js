@@ -1376,6 +1376,26 @@ app.get("/filled_ticket", isUser, async (req, res) => {
 						"count_number_row",
 						"count_fill_user",
 					],
+					include: [
+						{
+							model: GeneratedTicket,
+							as: "generated_tickets",
+							attributes: [
+								"id",
+								"date_generated",
+								"time_generated",
+								"arr_number",
+								"arr_true_number",
+							],
+							// Получаем только последний сгенерированный билет
+							separate: true, // Выполняет отдельный запрос для оптимизации
+							order: [
+								["date_generated", "DESC"],
+								["time_generated", "DESC"],
+							],
+							limit: 1,
+						},
+					],
 				},
 				{
 					model: HistoryOperation,
@@ -1433,6 +1453,23 @@ app.get("/filled_ticket", isUser, async (req, res) => {
 							? ticket.history.transaction_type.naim
 							: null,
 						is_successful: ticket.history.is_succesfull,
+				  }
+				: null,
+			generated_ticket: ticket.setting_ticket?.generated_tickets?.[0]
+				? {
+						id: ticket.setting_ticket.generated_tickets[0].id,
+						date_generated:
+							ticket.setting_ticket.generated_tickets[0]
+								.date_generated,
+						time_generated:
+							ticket.setting_ticket.generated_tickets[0]
+								.time_generated,
+						arr_number:
+							ticket.setting_ticket.generated_tickets[0]
+								.arr_number,
+						arr_true_number:
+							ticket.setting_ticket.generated_tickets[0]
+								.arr_true_number,
 				  }
 				: null,
 		}));
