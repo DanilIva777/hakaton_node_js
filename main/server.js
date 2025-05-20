@@ -63,6 +63,10 @@ app.use(
 	})
 );
 
+function generateRandomNumber(min, max) {
+	return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
 async function generateTicketNumbers(count_number_row) {
 	console.log(`Generating numbers for count_number_row: ${count_number_row}`);
 	const totalNumbers = Array.isArray(count_number_row)
@@ -78,14 +82,14 @@ async function generateTicketNumbers(count_number_row) {
 	}
 	const arr_number = [];
 	for (let i = 0; i < numbersToSelect; i++) {
-		const randomNum = await crypto.randomInt(1, totalNumbers);
+		const randomNum = await generateRandomNumber(1, totalNumbers);
 		if (!arr_number.includes(randomNum)) {
 			arr_number.push(randomNum);
 		} else {
 			i--;
 		}
 	}
-	return arr_number.sort((a, b) => a - b);
+	return arr_number;
 }
 
 async function createGeneratedTicket(setting) {
@@ -1975,7 +1979,7 @@ app.post("/game/start", isUser, async (req, res) => {
 
 		const grid = generateFullGrid();
 		removeRandomCells(grid, setting.initial_filled_cells);
-		const currentNumber = await crypto.randomInt(1, 9);
+		const currentNumber = await generateRandomNumber(1, 9);
 
 		const game = await Game.create(
 			{
@@ -2122,7 +2126,7 @@ app.post("/game/move", isUser, async (req, res) => {
 			).toFixed(2);
 		}
 
-		const newNumber = await crypto.randomInt(1, 9);
+		const newNumber = await generateRandomNumber(1, 9);
 		game.current_number = newNumber;
 		game.grid = grid;
 
@@ -2266,7 +2270,7 @@ app.post("/game/skip", isUser, async (req, res) => {
 		game.skip_count += 1;
 		game.total_bets = (parseFloat(game.total_bets) + skipCost).toFixed(2);
 
-		const newNumber = await crypto.randomInt(1, 9);
+		const newNumber = await generateRandomNumber(1, 9);
 		game.current_number = newNumber;
 
 		const typeTransaction = await TypeTransaction.findOne({
