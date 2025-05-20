@@ -1899,21 +1899,18 @@ function shuffle(array) {
 
 function canPlaceNumber(grid, row, col, num) {
 	for (let x = 0; x < 9; x++) {
-		if (grid[row][x] === num) return false;
+		if (grid[row][x] === num) return false; // Проверка строки
 	}
-
 	for (let x = 0; x < 9; x++) {
-		if (grid[x][col] === num) return false;
+		if (grid[x][col] === num) return false; // Проверка столбца
 	}
-
 	const startRow = Math.floor(row / 3) * 3;
 	const startCol = Math.floor(col / 3) * 3;
 	for (let i = 0; i < 3; i++) {
 		for (let j = 0; j < 3; j++) {
-			if (grid[startRow + i][startCol + j] === num) return false;
+			if (grid[startRow + i][startCol + j] === num) return false; // Проверка 3x3 блока
 		}
 	}
-
 	return true;
 }
 
@@ -2135,10 +2132,9 @@ app.post("/game/start", isUser, async (req, res) => {
 });
 
 app.post("/game/move", isUser, async (req, res) => {
-	const { game_id, cells } = req.body;
+	const { game_id, cells } = req.body; // cells: { row: number, col: number }
 	const token = req.headers.authorization.replace("Bearer ", "");
 	const transaction = await sequelize.transaction();
-
 	try {
 		const account = await Account.findOne({ where: { token } });
 		if (!account) {
@@ -2148,7 +2144,6 @@ app.post("/game/move", isUser, async (req, res) => {
 
 		const userInfo = await UserInfo.findOne({
 			where: { id_acc: account.id },
-			transaction,
 		});
 		if (!userInfo) {
 			await transaction.rollback();
@@ -2166,131 +2161,70 @@ app.post("/game/move", isUser, async (req, res) => {
 			await transaction.rollback();
 			return res
 				.status(404)
-				.json({ message: "Игра не найдена или не активна" });
+				.json({ message: "Игра не найдена или неактивна" });
 		}
 
-		if (!Array.isArray(cells) || cells.length === 0) {
+		const { row, col } = cells;
+		if (game.grid[row][col] !== 0) {
 			await transaction.rollback();
-			return res
-				.status(400)
-				.json({ message: "Не указаны клетки для хода" });
+			return res.status(400).json({ message: "Клетка уже заполнена" });
 		}
 
-		const setting = game.setting;
-		const currentNumber = game.current_number;
-		const moveCost = parseFloat(game.current_move_cost);
-		const userBalance = parseFloat(userInfo.balance_real);
-
-		if (userBalance < moveCost) {
-			await transaction.rollback();
-			return res
-				.status(400)
-				.json({ message: "Недостаточно средств для хода" });
-		}
-
-		let grid = game.grid;
-		let validMove = false;
-
-		for (const [row, col] of cells) {
-			if (
-				row < 0 ||
-				row >= 9 ||
-				col < 0 ||
-				col >= 9 ||
-				grid[row][col] !== 0
-			) {
-				continue;
-			}
-			if (canPlaceNumber(grid, row, col, currentNumber)) {
-				grid[row][col] = currentNumber;
-				validMove = true;
-			}
-		}
-
-		if (!validMove) {
+		// Проверка допустимости числа
+		if (!canPlaceNumber(game.grid, row, col, game.current_number)) {
 			await transaction.rollback();
 			return res.status(400).json({
-				message: "Невозможно разместить число в указанных клетках",
+				message: "Нельзя поставить это число сюда",
+				invalid_cells: checkInvalidCells(
+					game.grid,
+					row,
+					col,
+					game.current_number
+				),
 			});
 		}
 
-		userInfo.balance_real = (userBalance - moveCost).toFixed(2);
-		game.total_bets = (parseFloat(game.total_bets) + moveCost).toFixed(2);
-
-		const payout = checkCompletions(grid, setting);
-		if (payout > 0) {
-			userInfo.balance_real = (
-				parseFloat(userInfo.balance_real) + payout
-			).toFixed(2);
-			game.total_payouts = (
-				parseFloat(game.total_payouts) + payout
-			).toFixed(2);
-		}
-
-		const newNumber = await generateRandomNumber(1, 9);
-		game.current_number = newNumber;
-		game.grid = grid;
-
-		const typeTransaction = await TypeTransaction.findOne({
-			where: { naim: "Ставка в лото или играх (реальная валюта)" },
-			transaction,
-		});
-		if (!typeTransaction) {
+		// Проверка баланса
+		const cost =
+			parseFloat(game.current_move_cost) +
+			game.skip_count * parseFloat(game.setting.initial_skill_cost);
+		if (userInfo.bonus_balance < cost) {
 			await transaction.rollback();
-			throw new Error(
-				"Тип транзакции 'Ставка в лото или играх (реальная валюта)' не найден"
-			);
+			return res.status(400).json({ message: "Недостаточно бонусов" });
 		}
 
-		const currentDate = new Date();
-		await HistoryOperation.create(
-			{
-				id_user: userInfo.id,
-				change: (-moveCost).toFixed(2),
-				date: currentDate.toISOString().split("T")[0],
-				time: currentDate.toTimeString().split(" ")[0],
-				type_transaction: typeTransaction.id,
-				is_succesfull: true,
-			},
-			{ transaction }
+		// Обновление сетки
+		game.grid[row][col] = game.current_number;
+
+		// Обновление баланса и ставок
+		userInfo.bonus_balance -= cost;
+		game.total_bets = parseFloat(game.total_bets) + cost;
+		game.skip_count = 0;
+		game.current_move_cost = parseFloat(game.setting.base_move_cost);
+
+		// Проверка завершений
+		const { payout, updatedGrid } = checkCompletions(
+			game.grid,
+			game.setting
 		);
+		game.grid = updatedGrid;
+		game.total_payouts = parseFloat(game.total_payouts) + payout;
+		userInfo.bonus_balance += payout;
 
-		if (payout > 0) {
-			const winTransaction = await TypeTransaction.findOne({
-				where: { naim: "Выигрыш в лото (реальная валюта)" },
-				transaction,
-			});
-			if (!winTransaction) {
-				await transaction.rollback();
-				throw new Error(
-					"Тип транзакции 'Выигрыш в лото (реальная валюта)' не найден"
-				);
-			}
-			await HistoryOperation.create(
-				{
-					id_user: userInfo.id,
-					change: payout.toFixed(2),
-					date: currentDate.toISOString().split("T")[0],
-					time: currentDate.toTimeString().split(" ")[0],
-					type_transaction: winTransaction.id,
-					is_succesfull: true,
-				},
-				{ transaction }
-			);
-		}
+		// Генерация нового числа
+		game.current_number = await generateRandomNumber(1, 9);
 
-		const completionProbability = calculateCompletionProbability(
-			grid,
-			cells
+		// Проверка на завершение игры
+		const isComplete = game.grid.every((row) =>
+			row.every((cell) => cell !== 0)
 		);
-
-		if (completionProbability >= 100) {
+		if (isComplete) {
 			game.is_active = false;
 		}
 
+		// Сохранение изменений
 		await userInfo.save({ transaction });
 		await game.save({ transaction });
-
 		await transaction.commit();
 
 		res.status(200).json({
@@ -2306,10 +2240,10 @@ app.post("/game/move", isUser, async (req, res) => {
 				is_active: game.is_active,
 				date_created: game.date_created,
 				time_created: game.time_created,
+				bonus_balance: userInfo.bonus_balance,
+				real_balance: userInfo.real_balance || 10.0,
 			},
-			new_balance: parseFloat(userInfo.balance_real),
-			payout: payout,
-			completion_probability: completionProbability,
+			payout,
 		});
 	} catch (error) {
 		await transaction.rollback();
@@ -2320,6 +2254,104 @@ app.post("/game/move", isUser, async (req, res) => {
 		});
 	}
 });
+
+// Вспомогательные функции
+function canPlaceNumber(grid, row, col, num) {
+	for (let c = 0; c < 9; c++) {
+		if (grid[row][c] === num) return false;
+	}
+	for (let r = 0; r < 9; r++) {
+		if (grid[r][col] === num) return false;
+	}
+	const blockRow = Math.floor(row / 3) * 3;
+	const blockCol = Math.floor(col / 3) * 3;
+	for (let r = blockRow; r < blockRow + 3; r++) {
+		for (let c = blockCol; c < blockCol + 3; c++) {
+			if (grid[r][c] === num) return false;
+		}
+	}
+	return true;
+}
+
+function checkInvalidCells(grid, row, col, num) {
+	const invalid = [];
+	for (let c = 0; c < 9; c++) {
+		if (c !== col && grid[row][c] === num) {
+			invalid.push(`${row}-${c}`);
+		}
+	}
+	for (let r = 0; r < 9; r++) {
+		if (r !== row && grid[r][col] === num) {
+			invalid.push(`${r}-${col}`);
+		}
+	}
+	const blockRow = Math.floor(row / 3) * 3;
+	const blockCol = Math.floor(col / 3) * 3;
+	for (let r = blockRow; r < blockRow + 3; r++) {
+		for (let c = blockCol; c < blockCol + 3; c++) {
+			if ((r !== row || c !== col) && grid[r][c] === num) {
+				invalid.push(`${r}-${c}`);
+			}
+		}
+	}
+	return invalid;
+}
+
+function checkCompletions(grid, setting) {
+	let payout = 0;
+	const newGrid = grid.map((row) => row.slice());
+	const isCompleteGroup = (cells) => {
+		const seen = new Set();
+		for (const [r, c] of cells) {
+			const val = newGrid[r][c];
+			if (val === 0 || seen.has(val)) return false;
+			seen.add(val);
+		}
+		return true;
+	};
+
+	// Проверка строк
+	for (let r = 0; r < 9; r++) {
+		const cells = Array.from({ length: 9 }, (_, c) => [r, c]);
+		if (isCompleteGroup(cells)) {
+			payout += parseFloat(setting.payout_row_col);
+			cells.forEach(([r, c]) => (newGrid[r][c] = 0));
+		}
+	}
+
+	// Проверка столбцов
+	for (let c = 0; c < 9; c++) {
+		const cells = Array.from({ length: 9 }, (_, r) => [r, c]);
+		if (isCompleteGroup(cells)) {
+			payout += parseFloat(setting.payout_row_col);
+			cells.forEach(([r, c]) => (newGrid[r][c] = 0));
+		}
+	}
+
+	// Проверка блоков
+	for (let br = 0; br < 3; br++) {
+		for (let bc = 0; bc < 3; bc++) {
+			const cells = [];
+			for (let r = br * 3; r < br * 3 + 3; r++) {
+				for (let c = bc * 3; c < bc * 3 + 3; c++) {
+					cells.push([r, c]);
+				}
+			}
+			if (isCompleteGroup(cells)) {
+				payout += parseFloat(setting.payout_block);
+				cells.forEach(([r, c]) => (newGrid[r][c] = 0));
+			}
+		}
+	}
+
+	// Проверка полного завершения
+	const isComplete = newGrid.every((row) => row.every((cell) => cell !== 0));
+	if (isComplete) {
+		payout += parseFloat(setting.payout_complete);
+	}
+
+	return { payout, updatedGrid: newGrid };
+}
 
 app.post("/game/skip", isUser, async (req, res) => {
 	const { game_id } = req.body;
