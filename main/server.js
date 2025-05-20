@@ -2282,23 +2282,20 @@ app.post("/game/move", isUser, async (req, res) => {
 			return res.status(400).json({ message: "Недостаточно бонусов" });
 		}
 
-		// Обновление сетки
-		const newGrid = [...game.grid]; // Создаем копию grid
+		const newGrid = [...game.grid];
 		newGrid[row][col] = game.current_number;
 		game.grid = newGrid;
 
-		// Обновление баланса и ставок
 		userInfo.balance_virtual = currentBalance - cost;
 		game.total_bets = parseFloat(game.total_bets) + cost;
 		game.skip_count = 0;
 		game.current_move_cost = parseFloat(game.setting.base_move_cost);
 
-		// Проверка завершений
 		const { payout, updatedGrid } = checkCompletions(
 			[...game.grid],
 			game.setting
 		);
-		game.grid = JSON.parse(JSON.stringify(updatedGrid)); // Гарантируем новый объект
+		game.grid = JSON.parse(JSON.stringify(updatedGrid));
 		game.total_payouts = parseFloat(game.total_payouts) + payout;
 		userInfo.balance_virtual = userInfo.balance_virtual + payout;
 
@@ -2631,6 +2628,88 @@ app.post("/game/end", isUser, async (req, res) => {
 			await transaction.rollback();
 		} catch {}
 		console.error("Ошибка при завершении игры:", error);
+		res.status(500).json({
+			success: false,
+			message: "Ошибка сервера: " + error.message,
+		});
+	}
+});
+
+app.post("/user/balance/update", isUser, async (req, res) => {
+	try {
+		const { real_balance, balance_virtual } = req.body;
+		const token = req.headers.authorization.replace("Bearer ", "");
+
+		// Проверка входных данных
+		if (real_balance === undefined && balance_virtual === undefined) {
+			return res.status(400).json({
+				message:
+					"Не указаны значения для real_balance или balance_virtual",
+			});
+		}
+
+		// Валидация чисел
+		if (
+			real_balance !== undefined &&
+			(isNaN(real_balance) || real_balance < 0)
+		) {
+			return res.status(400).json({
+				message: "real_balance должен быть неотрицательным числом",
+			});
+		}
+		if (
+			balance_virtual !== undefined &&
+			(isNaN(balance_virtual) || balance_virtual < 0)
+		) {
+			return res.status(400).json({
+				message: "balance_virtual должен быть неотрицательным числом",
+			});
+		}
+
+		// Поиск аккаунта по токену
+		const account = await Account.findOne({ where: { token } });
+		if (!account) {
+			return res.status(401).json({ message: "Пользователь не найден" });
+		}
+
+		// Поиск информации о пользователе
+		const userInfo = await UserInfo.findOne({
+			where: { id_acc: account.id },
+		});
+		if (!userInfo) {
+			return res
+				.status(404)
+				.json({ message: "Информация о пользователе не найдена" });
+		}
+
+		// Обновление балансов
+		if (real_balance !== undefined) {
+			userInfo.real_balance = parseFloat(real_balance);
+		}
+		if (balance_virtual !== undefined) {
+			userInfo.balance_virtual = parseFloat(
+				balance_virtual?.replace("$", "").replace(/,/g, "")
+			);
+		}
+
+		await userInfo.save();
+
+		// Ответ клиенту
+		res.status(200).json({
+			success: true,
+			user: {
+				id_acc: userInfo.id_acc,
+				real_balance: userInfo.real_balance
+					?.replace("$", "")
+					.replace(/,/g, ""),
+				balance_virtual: userInfo.balance_virtual
+					?.replace("$", "")
+					.replace(/,/g, ""),
+			},
+			message: "Баланс успешно обновлен",
+		});
+	} catch (error) {
+		console.error("Ошибка при обновлении баланса:", error);
 		res.status(500).json({
 			success: false,
 			message: "Ошибка сервера: " + error.message,
