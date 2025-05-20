@@ -354,7 +354,7 @@ function createIntervalForSetting(setting) {
 		}
 
 		// Создание нового интервала
-		intervalJobs[setting.id] = setInterval(async () => {
+		intervalJobs[setting.id] = setTimeout(async () => {
 			console.log(
 				`[${new Date().toISOString()}] Генерация билета для ${
 					setting.id
