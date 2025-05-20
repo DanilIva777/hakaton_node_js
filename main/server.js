@@ -274,7 +274,9 @@ async function createGeneratedTicket(setting) {
 			await transaction.commit();
 			return newGeneratedTicket;
 		} catch (error) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			console.error("Ошибка при создании GeneratedTicket:", error);
 			throw error;
 		}
@@ -555,7 +557,9 @@ app.post("/register_user", async (req, res) => {
 			transaction
 		);
 		if (!result.success) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res.status(400).json({ message: result.message });
 		}
 
@@ -582,7 +586,9 @@ app.post("/register_user", async (req, res) => {
 			},
 		});
 	} catch (error) {
-		await transaction.rollback();
+		try {
+			await transaction.rollback();
+		} catch {}
 		console.error("Ошибка при регистрации:", error);
 		res.status(500).json({ message: "Ошибка сервера" });
 	}
@@ -695,7 +701,9 @@ app.get("/user_info", isUser, async (req, res) => {
 		const userId = account.id;
 
 		if (!account) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res.status(401).json({
 				success: false,
 				message: "Пользователь не авторизован",
@@ -706,7 +714,9 @@ app.get("/user_info", isUser, async (req, res) => {
 			userId && account.role_id === 1 ? userId : account.id;
 
 		if (userId && isNaN(targetUserId)) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res.status(400).json({
 				success: false,
 				message: "Некорректный ID пользователя",
@@ -727,7 +737,9 @@ app.get("/user_info", isUser, async (req, res) => {
 		});
 
 		if (!targetAccount) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res.status(404).json({
 				success: false,
 				message: "Пользователь не найден",
@@ -756,7 +768,9 @@ app.get("/user_info", isUser, async (req, res) => {
 		});
 
 		if (!userInfo) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res.status(404).json({
 				success: false,
 				message: "Информация о пользователе не найдена",
@@ -967,7 +981,9 @@ app.get("/user_info", isUser, async (req, res) => {
 
 		res.status(200).json(response);
 	} catch (error) {
-		await transaction.rollback();
+		try {
+			await transaction.rollback();
+		} catch {}
 		console.error("Ошибка при получении данных пользователя:", error);
 		res.status(500).json({
 			success: false,
@@ -1098,7 +1114,9 @@ app.post("/buy_vip", isUser, async (req, res) => {
 		});
 
 		if (!account) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res.status(401).json({
 				success: false,
 				message: "Требуется авторизация",
@@ -1120,7 +1138,9 @@ app.post("/buy_vip", isUser, async (req, res) => {
 		});
 
 		if (!user) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res.status(404).json({
 				success: false,
 				message: "Профиль не найден",
@@ -1129,7 +1149,9 @@ app.post("/buy_vip", isUser, async (req, res) => {
 
 		const offerId = parseInt(vip_offer_id, 10);
 		if (isNaN(offerId)) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res.status(400).json({
 				success: false,
 				message: "Неверный формат ID предложения",
@@ -1149,7 +1171,9 @@ app.post("/buy_vip", isUser, async (req, res) => {
 		};
 
 		if (!vipOffer || !TRANSACTION_TYPE_MAP[offerId]) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res.status(404).json({
 				success: false,
 				message: "Предложение не найдено",
@@ -1161,7 +1185,9 @@ app.post("/buy_vip", isUser, async (req, res) => {
 
 		if (user.is_vip && newVipCategory < currentVipCategory) {
 			if (!confirm_downgrade) {
-				await transaction.rollback();
+				try {
+					await transaction.rollback();
+				} catch {}
 				return res.status(400).json({
 					success: false,
 					message:
@@ -1179,7 +1205,9 @@ app.post("/buy_vip", isUser, async (req, res) => {
 		const price = parseFloat(priceRaw.replace(/[^0-9.]/g, ""));
 
 		if (isNaN(price) || price <= 0) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res.status(400).json({
 				success: false,
 				message: `Неверное значение цены: ${priceRaw}`,
@@ -1187,7 +1215,9 @@ app.post("/buy_vip", isUser, async (req, res) => {
 		}
 
 		if (user.balance_virtual < price) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res.status(400).json({
 				success: false,
 				message: "Недостаточно средств",
@@ -1196,7 +1226,9 @@ app.post("/buy_vip", isUser, async (req, res) => {
 
 		const countDay = parseInt(vipOffer.count_day, 10);
 		if (isNaN(countDay) || countDay <= 0) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res.status(400).json({
 				success: false,
 				message: `Неверное значение длительности: ${vipOffer.count_day}`,
@@ -1256,7 +1288,9 @@ app.post("/buy_vip", isUser, async (req, res) => {
 			vip_category: updatedUser.category_vip,
 		});
 	} catch (error) {
-		await transaction.rollback();
+		try {
+			await transaction.rollback();
+		} catch {}
 		console.error(
 			`[${new Date().toISOString()}] Ошибка покупки VIP:`,
 			error.stack || error
@@ -1334,7 +1368,9 @@ app.post("/setting_ticket", isAdmin, async (req, res) => {
 				settingTicket: newSettingTicket.toJSON(),
 			});
 		} catch (error) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			throw error;
 		}
 	} catch (error) {
@@ -1351,14 +1387,18 @@ app.put("/update-setting_ticket/:id", isAdmin, async (req, res) => {
 		const settingTicketId = parseInt(req.params.id, 10);
 
 		if (isNaN(settingTicketId)) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res.status(400).json({
 				message: "Некорректный ID настройки",
 			});
 		}
 
 		if (req.body.time && !/^\d{2}:\d{2}:\d{2}$/.test(req.body.time)) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res.status(400).json({
 				message: "Неверный формат времени. Используйте HH:mm:ss",
 			});
@@ -1369,7 +1409,9 @@ app.put("/update-setting_ticket/:id", isAdmin, async (req, res) => {
 			(!Array.isArray(req.body.count_number_row) ||
 				req.body.count_number_row.length === 0)
 		) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res.status(400).json({
 				message: "count_number_row должен быть непустым массивом",
 			});
@@ -1381,7 +1423,9 @@ app.put("/update-setting_ticket/:id", isAdmin, async (req, res) => {
 		});
 
 		if (!settingTicket) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res.status(404).json({
 				message: "Настройка не найдена",
 			});
@@ -1409,7 +1453,9 @@ app.put("/update-setting_ticket/:id", isAdmin, async (req, res) => {
 			settingTicket: settingTicket.toJSON(),
 		});
 	} catch (error) {
-		await transaction.rollback();
+		try {
+			await transaction.rollback();
+		} catch {}
 		console.error("Ошибка при обновлении настройки:", error);
 		res.status(500).json({
 			message: "Ошибка сервера: " + error.message,
@@ -1760,7 +1806,9 @@ app.post("/filled_ticket", isUser, async (req, res) => {
 				newBalance: userInfo.balance_real,
 			});
 		} catch (error) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			console.error("Ошибка при создании FilledTicket:", error);
 			return res.status(500).json({
 				message: "Ошибка при создании билета: " + error.message,
@@ -2039,7 +2087,9 @@ app.post("/game/start", isUser, async (req, res) => {
 
 		const account = await Account.findOne({ where: { token } });
 		if (!account) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res.status(401).json({ message: "Пользователь не найден" });
 		}
 
@@ -2047,7 +2097,9 @@ app.post("/game/start", isUser, async (req, res) => {
 			where: { id_acc: account.id },
 		});
 		if (!userInfo) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res
 				.status(404)
 				.json({ message: "Информация о пользователе не найдена" });
@@ -2103,7 +2155,9 @@ app.post("/game/start", isUser, async (req, res) => {
 			transaction,
 		});
 		if (!setting) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res
 				.status(404)
 				.json({ message: "Настройка игры не найдена или неактивна" });
@@ -2175,7 +2229,9 @@ app.post("/game/move", isUser, async (req, res) => {
 
 		const account = await Account.findOne({ where: { token } });
 		if (!account) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res.status(401).json({ message: "Пользователь не найден" });
 		}
 
@@ -2183,7 +2239,9 @@ app.post("/game/move", isUser, async (req, res) => {
 			where: { id_acc: account.id },
 		});
 		if (!userInfo) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res
 				.status(404)
 				.json({ message: "Информация о пользователе не найдена" });
@@ -2195,7 +2253,9 @@ app.post("/game/move", isUser, async (req, res) => {
 			transaction,
 		});
 		if (!game) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res
 				.status(404)
 				.json({ message: "Игра не найдена или неактивна" });
@@ -2203,13 +2263,17 @@ app.post("/game/move", isUser, async (req, res) => {
 
 		const { row, col } = cells;
 		if (game.grid[row][col] !== 0) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res.status(400).json({ message: "Клетка уже заполнена" });
 		}
 
 		// Проверка допустимости числа
 		if (!canPlaceNumber(game.grid, row, col, game.current_number)) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res.status(400).json({
 				message: "Нельзя поставить это число сюда",
 				invalid_cells: checkInvalidCells(
@@ -2232,7 +2296,9 @@ app.post("/game/move", isUser, async (req, res) => {
 		if (
 			userInfo.balance_virtual?.replace("$", "")?.replace(/,/g, "") < cost
 		) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res.status(400).json({ message: "Недостаточно бонусов" });
 		}
 
@@ -2414,7 +2480,9 @@ app.post("/game/skip", isUser, async (req, res) => {
 
 		const account = await Account.findOne({ where: { token } });
 		if (!account) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res.status(401).json({ message: "Пользователь не найден" });
 		}
 
@@ -2423,7 +2491,9 @@ app.post("/game/skip", isUser, async (req, res) => {
 			transaction,
 		});
 		if (!userInfo) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res
 				.status(404)
 				.json({ message: "Информация о пользователе не найдена" });
@@ -2435,7 +2505,9 @@ app.post("/game/skip", isUser, async (req, res) => {
 			transaction,
 		});
 		if (!game) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res
 				.status(404)
 				.json({ message: "Игра не найдена или не активна" });
@@ -2452,7 +2524,9 @@ app.post("/game/skip", isUser, async (req, res) => {
 				.replace(/,/g, "") || "0";
 
 		if (userBalance < skipCost) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res
 				.status(400)
 				.json({ message: "Недостаточно средств для пропуска" });
@@ -2470,7 +2544,9 @@ app.post("/game/skip", isUser, async (req, res) => {
 			transaction,
 		});
 		if (!typeTransaction) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			throw new Error(
 				"Тип транзакции 'Пропуск хода в судоку (бонусы)' не найден"
 			);
@@ -2529,7 +2605,9 @@ app.post("/game/end", isUser, async (req, res) => {
 		const transaction = await sequelize.transaction();
 		const account = await Account.findOne({ where: { token } });
 		if (!account) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res.status(401).json({ message: "Пользователь не найден" });
 		}
 
@@ -2538,7 +2616,9 @@ app.post("/game/end", isUser, async (req, res) => {
 			transaction,
 		});
 		if (!userInfo) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res
 				.status(404)
 				.json({ message: "Информация о пользователе не найдена" });
@@ -2549,7 +2629,9 @@ app.post("/game/end", isUser, async (req, res) => {
 			transaction,
 		});
 		if (!game) {
-			await transaction.rollback();
+			try {
+				await transaction.rollback();
+			} catch {}
 			return res
 				.status(404)
 				.json({ message: "Игра не найдена или не активна" });
