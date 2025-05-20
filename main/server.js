@@ -903,6 +903,22 @@ app.get("/current_tickets", async (req, res) => {
 	try {
 		const activeSettings = await SettingTicket.findAll({
 			where: { is_start: true },
+			include: [
+				{
+					model: GeneratedTicket,
+					as: "generated_tickets",
+					attributes: [], // Не выбираем поля, так как нам нужно только проверить наличие
+					required: false, // LEFT JOIN, чтобы получить SettingTicket даже без GeneratedTicket
+					where: {
+						id: null, // Условие, чтобы включить только SettingTicket без GeneratedTicket
+					},
+				},
+			],
+			// Дополнительная фильтрация на уровне Sequelize для исключения SettingTicket с существующими GeneratedTicket
+			where: {
+				is_start: true,
+				"$generated_tickets.id$": null, // Убедимся, что нет связанных GeneratedTicket
+			},
 		});
 		return res.status(200).json(activeSettings);
 		if (!activeSettings || activeSettings.length === 0) {
