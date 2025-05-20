@@ -34,7 +34,7 @@ const Account = sequelize.define(
 		login: {
 			type: DataTypes.TEXT,
 			allowNull: false,
-			unique: true, // Добавлено для согласованности с базой данных
+			unique: true,
 		},
 		password: {
 			type: DataTypes.TEXT,
@@ -47,12 +47,12 @@ const Account = sequelize.define(
 		token: {
 			type: DataTypes.TEXT,
 			allowNull: false,
-			unique: true, // Добавлено для согласованности с базой данных
+			unique: true,
 		},
 		mail: {
 			type: DataTypes.TEXT,
 			allowNull: true,
-			unique: true, // Добавлено для согласованности с базой данных
+			unique: true,
 		},
 	},
 	{
@@ -76,11 +76,11 @@ const SettingTicket = sequelize.define(
 			allowNull: true,
 		},
 		price_ticket: {
-			type: DataTypes.DECIMAL(10, 2), // Уточнён тип для согласованности
+			type: DataTypes.DECIMAL(10, 2),
 			allowNull: true,
 		},
 		percent_fond: {
-			type: DataTypes.DECIMAL(5, 2), // Уточнён тип для процентов
+			type: DataTypes.DECIMAL(5, 2),
 			allowNull: true,
 		},
 		is_start: {
@@ -211,7 +211,7 @@ const HistoryOperation = sequelize.define(
 			allowNull: false,
 		},
 		change: {
-			type: DataTypes.DECIMAL(10, 2), // Изменено с money на DECIMAL
+			type: DataTypes.DECIMAL(10, 2),
 			allowNull: false,
 		},
 		type_transaction: {
@@ -221,7 +221,7 @@ const HistoryOperation = sequelize.define(
 		is_succesfull: {
 			type: DataTypes.BOOLEAN,
 			allowNull: false,
-			defaultValue: false, // Добавлено для согласованности
+			defaultValue: false,
 		},
 		date: {
 			type: DataTypes.DATEONLY,
@@ -274,24 +274,23 @@ const UserInfo = sequelize.define(
 			allowNull: false,
 		},
 		balance_virtual: {
-			type: DataTypes.DECIMAL(10, 2), // Изменено с money на DECIMAL
+			type: DataTypes.DECIMAL(10, 2),
 			allowNull: false,
 		},
 		balance_real: {
-			type: DataTypes.DECIMAL(10, 2), // Изменено с money на DECIMAL
+			type: DataTypes.DECIMAL(10, 2),
 			allowNull: false,
 		},
 		is_vip: {
 			type: DataTypes.BOOLEAN,
 			allowNull: true,
-			defaultValue: false, // Добавлено для согласованности
+			defaultValue: false,
 		},
 		vip_stop_date: {
 			type: DataTypes.DATEONLY,
 			allowNull: true,
 		},
 		category_vip: {
-			// Добавлено поле, отсутствующее в исходной модели
 			type: DataTypes.INTEGER,
 			allowNull: true,
 		},
@@ -331,7 +330,6 @@ const VipCost = sequelize.define(
 			},
 		},
 		category: {
-			// Добавлено поле, отсутствующее в исходной модели
 			type: DataTypes.INTEGER,
 			allowNull: true,
 		},
@@ -343,6 +341,7 @@ const VipCost = sequelize.define(
 	}
 );
 
+// Определение модели Game
 const Game = sequelize.define(
 	"Game",
 	{
@@ -404,6 +403,7 @@ const Game = sequelize.define(
 	}
 );
 
+// Определение модели SettingGame
 const SettingGame = sequelize.define(
 	"SettingGame",
 	{
@@ -477,13 +477,9 @@ GeneratedTicket.belongsTo(SettingTicket, {
 UserInfo.hasMany(FilledTicket, { foreignKey: "id_user", as: "filled_tickets" });
 FilledTicket.belongsTo(UserInfo, { foreignKey: "id_user", as: "user" });
 
-GeneratedTicket.hasMany(FilledTicket, {
-	foreignKey: "id_ticket",
-	as: "filled_tickets",
-});
 FilledTicket.belongsTo(SettingTicket, {
 	foreignKey: "id_ticket",
-	as: "ticket",
+	as: "setting_ticket",
 });
 
 HistoryOperation.hasMany(FilledTicket, {
@@ -513,7 +509,6 @@ HistoryOperation.belongsTo(TypeTransaction, {
 Account.hasOne(UserInfo, { foreignKey: "id_acc", as: "info" });
 UserInfo.belongsTo(Account, { foreignKey: "id_acc", as: "account" });
 
-// Добавлена связь между UserInfo и VipCost через category_vip
 VipCost.hasMany(UserInfo, { foreignKey: "category_vip", as: "users" });
 UserInfo.belongsTo(VipCost, { foreignKey: "category_vip", as: "vip_cost" });
 

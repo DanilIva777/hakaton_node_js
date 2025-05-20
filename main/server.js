@@ -1,6 +1,6 @@
 const express = require("express");
 const app = express();
-const port = 3000; // Порт для HTTPS
+const port = 3000;
 const http = require("http");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
@@ -34,7 +34,6 @@ const {
 const { Sequelize, Op, where } = require("sequelize");
 const passport = require("passport");
 const si = require("systeminformation");
-const { console } = require("inspector");
 
 app.use(passport.initialize());
 app.use(
@@ -44,24 +43,23 @@ app.use(
 app.use(express.json());
 app.use(
 	session({
-		secret: "pAssW0rd", // Секретный ключ
+		secret: "pAssW0rd",
 		resave: false,
 		saveUninitialized: true,
 		cookie: {
-			secure: true, // Требуется для HTTPS
-			httpOnly: true, // Защита от XSS
-			sameSite: "strict", // Защита от CSRF
+			secure: true,
+			httpOnly: true,
+			sameSite: "strict",
 		},
 	})
 );
 
-// Настройка CORS
 app.use(
 	cors({
-		origin: "*", // Разрешаем запросы с любых доменов
-		methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Разрешенные методы
-		allowedHeaders: ["Content-Type", "Authorization"], // Разрешенные заголовки
-		credentials: true, // Разрешаем отправку куки и заголовков авторизации
+		origin: "*",
+		methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+		allowedHeaders: ["Content-Type", "Authorization"],
+		credentials: true,
 	})
 );
 
@@ -89,7 +87,6 @@ async function generateRandomNumber(min, max) {
 	}
 }
 
-// Функция для генерации случайных чисел для билета
 async function generateTicketNumbers(count_number_row) {
 	console.log(`Generating numbers for count_number_row: ${count_number_row}`);
 	const totalNumbers = Array.isArray(count_number_row)
@@ -115,7 +112,6 @@ async function generateTicketNumbers(count_number_row) {
 	return arr_number.sort((a, b) => a - b);
 }
 
-// Функция для создания GeneratedTicket
 async function createGeneratedTicket(setting) {
 	try {
 		const currentDate = new Date();
@@ -128,14 +124,12 @@ async function createGeneratedTicket(setting) {
 				"count_fill_user не может быть больше количества чисел в arr_number"
 			);
 		}
-		// Генерация выигрышных чисел
 		const arr_true_number = [...arr_number]
 			.sort(() => 0.5 - Math.random())
 			.slice(0, countFillUser);
 
 		const transaction = await sequelize.transaction();
 		try {
-			// Создание нового GeneratedTicket
 			const newGeneratedTicket = await GeneratedTicket.create(
 				{
 					id_setting_ticket: setting.id,
@@ -147,43 +141,37 @@ async function createGeneratedTicket(setting) {
 				{ transaction }
 			);
 
-			// Поиск всех FilledTicket с is_win = null для данной настройки
 			const filledTickets = await FilledTicket.findAll({
 				where: {
-					id_ticket: newGeneratedTicket.id,
+					id_ticket: setting.id,
 					is_win: null,
 				},
 				include: [{ model: UserInfo, as: "user" }],
 				transaction,
 			});
 
-			// Проверка каждого FilledTicket
 			for (const filledTicket of filledTickets) {
 				const userInfo = filledTicket.user;
 
-				// Проверка диагонального соответствия
-				const isDiagonalMatch = checkDiagonalMatch(
+				const isDiagonalMatch = await checkDiagonalMatch(
 					filledTicket.multiplier_numbers || [],
-					newGeneratedTicket.arr_true_number,
+					setting.id,
 					setting.count_number_row
 				);
 
 				let payout = 0;
 				if (isDiagonalMatch) {
-					// Рассчитываем выигрыш
 					const multiplier = parseFloat(filledTicket.multiplier) || 1;
 					const priceFactor = multiplierFactors[multiplier] || 1;
 					const basePrice = parseFloat(setting.price_ticket) || 0;
 					payout = (basePrice * priceFactor * multiplier).toFixed(2);
 
-					// Обновляем баланс пользователя
 					userInfo.balance_real = (
 						parseFloat(userInfo.balance_real || 0) +
 						parseFloat(payout)
 					).toFixed(2);
 					await userInfo.save({ transaction });
 
-					// Создаем запись в HistoryOperation
 					const typeTransaction = await TypeTransaction.findOne({
 						where: { naim: "Выигрыш в лото (реальная валюта)" },
 						transaction,
@@ -207,7 +195,6 @@ async function createGeneratedTicket(setting) {
 					);
 				}
 
-				// Обновляем is_win для текущего FilledTicket
 				await filledTicket.update(
 					{ is_win: isDiagonalMatch },
 					{ transaction }
@@ -230,18 +217,51 @@ async function createGeneratedTicket(setting) {
 	}
 }
 
-// Кэш для активных настроек и интервалов
+const multiplierFactors = {
+	1.25: 2.5,
+	1.5: 3,
+	2: 4,
+};
+
+async function checkDiagonalMatch(arrMultiplierNumber, settingId, countNumberRow) {
+	const size = countNumberRow[0];
+	if (arrMultiplierNumber.length !== size) {
+		return false;
+	}
+
+	const latestGeneratedTicket = await GeneratedTicket.findOne({
+		where: { id_setting_ticket: settingId },
+		order: [
+			["date_generated", "DESC"],
+			["time_generated", "DESC"],
+		],
+	});
+
+	if (!latestGeneratedTicket || !latestGeneratedTicket.arr_true_number) {
+		return false;
+	}
+
+	const trueNumbers = latestGeneratedTicket.arr_true_number;
+
+	for (let i = 0; i < size; i++) {
+		const diagonalIndex = i * size + i;
+		if (arrMultiplierNumber[i] !== trueNumbers[diagonalIndex]) {
+			return false;
+		}
+	}
+	return true;
+}
+
 let activeSettingsCache = [];
 let intervalJobs = {};
 
-// Функция для преобразования времени HH:mm:ss в миллисекунды
 function timeToMilliseconds(time) {
 	try {
 		if (!time) return 0;
 
 		const parts = String(time)
 			.split(":")
-			.map((p) => parseInt(p, 10) || 0); // Защита от NaN
+			.map((p) => parseInt(p, 10) || 0);
 
 		while (parts.length < 3) parts.push(0);
 		const [hours, minutes, seconds] = parts;
@@ -257,7 +277,6 @@ function timeToMilliseconds(time) {
 	}
 }
 
-// Улучшенная функция обновления кэша
 async function updateSingleSetting(settingId) {
 	try {
 		const setting = await SettingTicket.findOne({
@@ -278,13 +297,10 @@ async function updateSingleSetting(settingId) {
 			(s) => s.id === settingId
 		);
 
-		// Если настройка активна
 		if (setting.is_start) {
-			// Проверка изменений
 			if (existingIndex >= 0) {
 				const cachedSetting = activeSettingsCache[existingIndex];
 
-				// Если изменилось время или параметры генерации
 				if (
 					cachedSetting.time !== setting.time ||
 					JSON.stringify(cachedSetting.count_number_row) !==
@@ -297,12 +313,10 @@ async function updateSingleSetting(settingId) {
 					createIntervalForSetting(setting);
 				}
 			} else {
-				// Новая активная настройка
 				activeSettingsCache.push(setting);
 				createIntervalForSetting(setting);
 			}
 		} else {
-			// Удаление из кэша и остановка таймера
 			if (existingIndex >= 0) {
 				activeSettingsCache.splice(existingIndex, 1);
 			}
@@ -317,26 +331,22 @@ async function updateSingleSetting(settingId) {
 	}
 }
 
-// Функция для создания или обновления интервала для одной настройки
 function createIntervalForSetting(setting) {
 	try {
 		console.log(
 			`[${new Date().toISOString()}] Обработка настройки ${setting.id}`
 		);
 
-		// Очистка предыдущего таймера
 		if (intervalJobs[setting.id]) {
 			clearInterval(intervalJobs[setting.id]);
 			console.log(`Удалён предыдущий таймер для ${setting.id}`);
 		}
 
-		// Пропуск неактивных настроек
 		if (!setting.is_start) {
 			console.log(`Настройка ${setting.id} не активна, пропуск`);
 			return;
 		}
 
-		// Валидация параметров
 		if (!setting.time || !setting.count_number_row) {
 			console.warn(
 				`Некорректные параметры для настройки ${setting.id}`,
@@ -353,7 +363,6 @@ function createIntervalForSetting(setting) {
 			return;
 		}
 
-		// Создание нового интервала
 		intervalJobs[setting.id] = setTimeout(async () => {
 			console.log(
 				`[${new Date().toISOString()}] Генерация билета для ${
@@ -378,7 +387,6 @@ function createIntervalForSetting(setting) {
 	}
 }
 
-// Функция для обновления кэша настроек при старте
 async function updateSettingsCache() {
 	try {
 		const activeSettings = await SettingTicket.findAll({
@@ -414,7 +422,6 @@ async function updateSettingsCache() {
 	}
 }
 
-// Функция для инициализации интервалов
 function scheduleGeneratedTickets() {
 	console.log(
 		"Starting scheduleGeneratedTickets at:",
@@ -424,10 +431,8 @@ function scheduleGeneratedTickets() {
 		"Server timezone:",
 		Intl.DateTimeFormat().resolvedOptions().timeZone
 	);
-	// updateSettingsCache();
 }
 
-// Вызов функции при старте
 console.log("Initializing server at:", new Date().toISOString());
 scheduleGeneratedTickets();
 
@@ -462,7 +467,6 @@ const isUser = async (req, res, next) => {
 	}
 };
 
-// Маршрут для регистрации
 app.post("/register_user", async (req, res) => {
 	const { login, password, mail } = req.body;
 
@@ -481,7 +485,6 @@ app.post("/register_user", async (req, res) => {
 			return res.status(400).json({ message: result.message });
 		}
 
-		// Создаём запись в UserInfo
 		const newUserInfo = await UserInfo.create(
 			{
 				id_acc: result.user.id,
@@ -515,7 +518,6 @@ app.get("/auth_test", isAuthenticated, async (req, res) => {
 	res.json({ text: "Пользователь авторизован" });
 });
 
-// Маршрут для логина
 app.post("/login", async (req, res) => {
 	const { identifier, password } = req.body;
 	if (!identifier || !password) {
@@ -534,7 +536,6 @@ app.post("/login", async (req, res) => {
 	}
 });
 
-// Ручка для обновления почты
 app.put(
 	"/update-mail",
 	passport.authenticate("jwt", { session: false }),
@@ -553,7 +554,6 @@ app.put(
 	}
 );
 
-// Маршрут для удаления пользователя (только для админа)
 app.delete(
 	"/user/:id",
 	passport.authenticate("jwt", { session: false }),
@@ -607,13 +607,11 @@ app.get("/vip_offers", async (req, res) => {
 	}
 });
 
-// Ручка для получения всех сведений о пользователе
 app.get("/user_info", isUser, async (req, res) => {
 	const transaction = await sequelize.transaction();
 	try {
 		const token = req.headers.authorization.replace("Bearer ", "");
 
-		// Проверка токена и поиск аккаунта
 		const account = await Account.findOne({
 			where: { token },
 			attributes: ["id", "role_id"],
@@ -641,7 +639,6 @@ app.get("/user_info", isUser, async (req, res) => {
 			});
 		}
 
-		// Получение данных аккаунта
 		const targetAccount = await Account.findOne({
 			where: { id: targetUserId },
 			attributes: ["id", "login", "mail", "role_id"],
@@ -663,7 +660,6 @@ app.get("/user_info", isUser, async (req, res) => {
 			});
 		}
 
-		// Получение информации о пользователе
 		const userInfo = await UserInfo.findOne({
 			where: { id_acc: targetUserId },
 			attributes: [
@@ -693,7 +689,6 @@ app.get("/user_info", isUser, async (req, res) => {
 			});
 		}
 
-		// Получение истории операций
 		const historyOperations = await HistoryOperation.findAll({
 			where: { id_user: userInfo.id },
 			attributes: [
@@ -718,7 +713,6 @@ app.get("/user_info", isUser, async (req, res) => {
 			transaction,
 		});
 
-		// Получение активной игры
 		const activeGame = await Game.findOne({
 			where: { id_user: userInfo.id, is_active: true },
 			attributes: [
@@ -749,7 +743,6 @@ app.get("/user_info", isUser, async (req, res) => {
 			transaction,
 		});
 
-		// Получение заполненных билетов
 		const filledTickets = await FilledTicket.findAll({
 			where: { id_user: userInfo.id },
 			attributes: [
@@ -764,24 +757,14 @@ app.get("/user_info", isUser, async (req, res) => {
 			],
 			include: [
 				{
-					model: GeneratedTicket,
-					as: "ticket",
+					model: SettingTicket,
+					as: "setting_ticket",
 					attributes: [
-						"id_setting_ticket",
-						"arr_number",
-						"arr_true_number",
-					],
-					include: [
-						{
-							model: SettingTicket,
-							as: "setting_ticket",
-							attributes: [
-								"time",
-								"price_ticket",
-								"count_number_row",
-								"count_fill_user",
-							],
-						},
+						"id",
+						"time",
+						"price_ticket",
+						"count_number_row",
+						"count_fill_user",
 					],
 				},
 			],
@@ -790,7 +773,6 @@ app.get("/user_info", isUser, async (req, res) => {
 
 		await transaction.commit();
 
-		// Форматирование ответа
 		const response = {
 			success: true,
 			user: {
@@ -807,12 +789,12 @@ app.get("/user_info", isUser, async (req, res) => {
 					vip_stop_date: userInfo.vip_stop_date || null,
 					vip_category: userInfo.vip_cost
 						? {
-								id: userInfo.vip_cost.id,
-								name: userInfo.vip_cost.naim,
-								price: parseFloat(userInfo.vip_cost.price) || 0,
-								count_day: userInfo.vip_cost.count_day || 0,
-								category: userInfo.vip_cost.category || 0,
-						  }
+							id: userInfo.vip_cost.id,
+							name: userInfo.vip_cost.naim,
+							price: parseFloat(userInfo.vip_cost.price) || 0,
+							count_day: userInfo.vip_cost.count_day || 0,
+							category: userInfo.vip_cost.category || 0,
+						}
 						: null,
 				},
 				history_operations: historyOperations.map((op) => ({
@@ -826,49 +808,49 @@ app.get("/user_info", isUser, async (req, res) => {
 				})),
 				active_game: activeGame
 					? {
-							id: activeGame.id,
-							grid: activeGame.grid,
-							current_number: activeGame.current_number,
-							skip_count: activeGame.skip_count,
-							current_move_cost:
-								parseFloat(activeGame.current_move_cost) || 0,
-							total_bets: parseFloat(activeGame.total_bets) || 0,
-							total_payouts:
-								parseFloat(activeGame.total_payouts) || 0,
-							date_created: activeGame.date_created,
-							time_created: activeGame.time_created,
-							setting: activeGame.setting
-								? {
-										base_move_cost:
-											parseFloat(
-												activeGame.setting
-													.base_move_cost
-											) || 0,
-										initial_skill_cost:
-											parseFloat(
-												activeGame.setting
-													.initial_skill_cost
-											) || 0,
-										payout_row_col:
-											parseFloat(
-												activeGame.setting
-													.payout_row_col
-											) || 0,
-										payout_block:
-											parseFloat(
-												activeGame.setting.payout_block
-											) || 0,
-										payout_complete:
-											parseFloat(
-												activeGame.setting
-													.payout_complete
-											) || 0,
-										initial_filled_cells:
-											activeGame.setting
-												.initial_filled_cells || 0,
-								  }
-								: null,
-					  }
+						id: activeGame.id,
+						grid: activeGame.grid,
+						current_number: activeGame.current_number,
+						skip_count: activeGame.skip_count,
+						current_move_cost:
+							parseFloat(activeGame.current_move_cost) || 0,
+						total_bets: parseFloat(activeGame.total_bets) || 0,
+						total_payouts:
+							parseFloat(activeGame.total_payouts) || 0,
+						date_created: activeGame.date_created,
+						time_created: activeGame.time_created,
+						setting: activeGame.setting
+							? {
+								base_move_cost:
+									parseFloat(
+										activeGame.setting
+											.base_move_cost
+									) || 0,
+								initial_skill_cost:
+									parseFloat(
+										activeGame.setting
+											.initial_skill_cost
+									) || 0,
+								payout_row_col:
+									parseFloat(
+										activeGame.setting
+											.payout_row_col
+									) || 0,
+								payout_block:
+									parseFloat(
+										activeGame.setting.payout_block
+									) || 0,
+								payout_complete:
+									parseFloat(
+										activeGame.setting
+											.payout_complete
+									) || 0,
+								initial_filled_cells:
+									activeGame.setting
+										.initial_filled_cells || 0,
+							}
+							: null,
+					}
 					: null,
 				filled_tickets: filledTickets.map((ticket) => ({
 					id: ticket.id,
@@ -878,30 +860,21 @@ app.get("/user_info", isUser, async (req, res) => {
 					is_win: ticket.is_win,
 					multiplier: parseFloat(ticket.multiplier) || 0,
 					multiplier_numbers: ticket.multiplier_numbers,
-					ticket: ticket.ticket
+					setting: ticket.setting_ticket
 						? {
-								id_setting_ticket:
-									ticket.ticket.id_setting_ticket,
-								arr_number: ticket.ticket.arr_number,
-								arr_true_number: ticket.ticket.arr_true_number,
-								setting: ticket.ticket.setting_ticket
-									? {
-											time: ticket.ticket.setting_ticket
-												.time,
-											price_ticket:
-												parseFloat(
-													ticket.ticket.setting_ticket
-														.price_ticket
-												) || 0,
-											count_number_row:
-												ticket.ticket.setting_ticket
-													.count_number_row,
-											count_fill_user:
-												ticket.ticket.setting_ticket
-													.count_fill_user,
-									  }
-									: null,
-						  }
+							id: ticket.setting_ticket.id,
+							time: ticket.setting_ticket.time,
+							price_ticket:
+								parseFloat(
+									String(
+										ticket.setting_ticket.price_ticket
+									).replace(/[^0-9.]/g, "")
+								) || 0,
+							count_number_row:
+								ticket.setting_ticket.count_number_row,
+							count_fill_user:
+								ticket.setting_ticket.count_fill_user,
+						}
 						: null,
 				})),
 			},
@@ -922,15 +895,12 @@ app.get("/user_info", isUser, async (req, res) => {
 	}
 });
 
-// Список всех текущих билетов
 app.get("/current_tickets", async (req, res) => {
 	try {
-		// Получаем все активные настройки с is_start = true
 		const activeSettings = await SettingTicket.findAll({
 			where: { is_start: true },
 		});
 
-		return res.status(200).json(activeSettings);
 		if (!activeSettings || activeSettings.length === 0) {
 			return res.status(404).json({
 				success: false,
@@ -938,7 +908,6 @@ app.get("/current_tickets", async (req, res) => {
 			});
 		}
 
-		// Для каждой активной настройки находим последний сгенерированный билет
 		const ticketsPromises = activeSettings.map((setting) =>
 			GeneratedTicket.findOne({
 				where: { id_setting_ticket: setting.id },
@@ -971,7 +940,6 @@ app.get("/current_tickets", async (req, res) => {
 			})
 		);
 
-		// Ожидаем выполнения всех запросов и фильтруем результаты
 		const ticketsResults = await Promise.all(ticketsPromises);
 		const validTickets = ticketsResults.filter((ticket) => ticket !== null);
 
@@ -982,7 +950,6 @@ app.get("/current_tickets", async (req, res) => {
 			});
 		}
 
-		// Форматируем билеты для ответа
 		const formattedTickets = validTickets.map((ticket) => ({
 			id: ticket.id,
 			setting_ticket_id: ticket.id_setting_ticket,
@@ -991,18 +958,18 @@ app.get("/current_tickets", async (req, res) => {
 			numbers: ticket.arr_number,
 			setting: ticket.setting_ticket
 				? {
-						id: ticket.setting_ticket.id,
-						time: ticket.setting_ticket.time,
-						price: parseFloat(
-							String(ticket.setting_ticket.price_ticket).replace(
-								/[^0-9.]/g,
-								""
-							)
-						),
-						count_number_row:
-							ticket.setting_ticket.count_number_row,
-						count_fill_user: ticket.setting_ticket.count_fill_user,
-				  }
+					id: ticket.setting_ticket.id,
+					time: ticket.setting_ticket.time,
+					price: parseFloat(
+						String(ticket.setting_ticket.price_ticket).replace(
+							/[^0-9.]/g,
+							""
+						)
+					),
+					count_number_row:
+						ticket.setting_ticket.count_number_row,
+					count_fill_user: ticket.setting_ticket.count_fill_user,
+				}
 				: null,
 		}));
 
@@ -1027,7 +994,6 @@ app.post("/buy_vip", isUser, async (req, res) => {
 		const { vip_offer_id, confirm_downgrade } = req.body;
 		const token = req.headers.authorization.replace("Bearer ", "");
 
-		// Поиск аккаунта
 		const account = await Account.findOne({
 			where: { token },
 			attributes: ["id"],
@@ -1042,7 +1008,6 @@ app.post("/buy_vip", isUser, async (req, res) => {
 			});
 		}
 
-		// Получение информации о пользователе с блокировкой
 		const user = await UserInfo.findOne({
 			where: { id_acc: account.id },
 			attributes: [
@@ -1065,7 +1030,6 @@ app.post("/buy_vip", isUser, async (req, res) => {
 			});
 		}
 
-		// Валидация ID предложения
 		const offerId = parseInt(vip_offer_id, 10);
 		if (isNaN(offerId)) {
 			await transaction.rollback();
@@ -1075,7 +1039,6 @@ app.post("/buy_vip", isUser, async (req, res) => {
 			});
 		}
 
-		// Поиск VIP предложения
 		const vipOffer = await VipCost.findByPk(offerId, {
 			attributes: ["id", "price", "count_day", "category"],
 			transaction,
@@ -1096,7 +1059,6 @@ app.post("/buy_vip", isUser, async (req, res) => {
 			});
 		}
 
-		// Проверка категории VIP
 		const currentVipCategory = user.category_vip || 0;
 		const newVipCategory = vipOffer.category;
 
@@ -1114,7 +1076,6 @@ app.post("/buy_vip", isUser, async (req, res) => {
 			}
 		}
 
-		// Парсинг цены
 		const priceRaw = Array.isArray(vipOffer.price)
 			? vipOffer.price[0]
 			: vipOffer.price;
@@ -1128,7 +1089,6 @@ app.post("/buy_vip", isUser, async (req, res) => {
 			});
 		}
 
-		// Проверка баланса
 		if (user.balance_virtual < price) {
 			await transaction.rollback();
 			return res.status(400).json({
@@ -1137,7 +1097,6 @@ app.post("/buy_vip", isUser, async (req, res) => {
 			});
 		}
 
-		// Валидация длительности VIP
 		const countDay = parseInt(vipOffer.count_day, 10);
 		if (isNaN(countDay) || countDay <= 0) {
 			await transaction.rollback();
@@ -1147,7 +1106,6 @@ app.post("/buy_vip", isUser, async (req, res) => {
 			});
 		}
 
-		// Обновление данных пользователя
 		const newVipStop = Sequelize.literal(
 			`NOW() + INTERVAL '${countDay} DAYS'`
 		);
@@ -1167,7 +1125,6 @@ app.post("/buy_vip", isUser, async (req, res) => {
 			}
 		);
 
-		// Создание записи в истории операций
 		const [historyRecord] = await Promise.all([
 			HistoryOperation.create(
 				{
@@ -1189,7 +1146,6 @@ app.post("/buy_vip", isUser, async (req, res) => {
 
 		await transaction.commit();
 
-		// Получение обновленных данных
 		const updatedUser = await UserInfo.findOne({
 			where: { id: user.id },
 			attributes: ["vip_stop_date", "category_vip"],
@@ -1219,7 +1175,6 @@ app.post("/buy_vip", isUser, async (req, res) => {
 	}
 });
 
-// Ручка для создания записи в таблице setting_ticket (только для админа)
 app.post("/setting_ticket", isAdmin, async (req, res) => {
 	try {
 		const {
@@ -1231,14 +1186,12 @@ app.post("/setting_ticket", isAdmin, async (req, res) => {
 			count_fill_user,
 		} = req.body;
 
-		// Валидация формата времени
 		if (time && !/^\d{2}:\d{2}:\d{2}$/.test(time)) {
 			return res.status(400).json({
 				message: "Неверный формат времени. Используйте HH:mm:ss",
 			});
 		}
 
-		// Валидация count_number_row
 		if (!Array.isArray(count_number_row) || count_number_row.length === 0) {
 			return res.status(400).json({
 				message: "count_number_row должен быть непустым массивом",
@@ -1263,11 +1216,9 @@ app.post("/setting_ticket", isAdmin, async (req, res) => {
 
 			await transaction.commit();
 			const intervalMs = timeToMilliseconds(newSettingTicket.time);
-			// Принудительное обновление кэша и запуск таймера
 			setTimeout(async () => {
 				console.log(
-					`[${new Date().toISOString()}] Генерация билета для ${
-						newSettingTicket.id
+					`[${new Date().toISOString()}] Генерация билета для ${newSettingTicket.id
 					}`
 				);
 				try {
@@ -1296,13 +1247,11 @@ app.post("/setting_ticket", isAdmin, async (req, res) => {
 	}
 });
 
-// Ручка для изменения записи в таблице setting_ticket (только для админа)
 app.put("/update-setting_ticket/:id", isAdmin, async (req, res) => {
 	const transaction = await sequelize.transaction();
 	try {
 		const settingTicketId = parseInt(req.params.id, 10);
 
-		// Валидация ID
 		if (isNaN(settingTicketId)) {
 			await transaction.rollback();
 			return res.status(400).json({
@@ -1310,7 +1259,6 @@ app.put("/update-setting_ticket/:id", isAdmin, async (req, res) => {
 			});
 		}
 
-		// Валидация формата времени
 		if (req.body.time && !/^\d{2}:\d{2}:\d{2}$/.test(req.body.time)) {
 			await transaction.rollback();
 			return res.status(400).json({
@@ -1318,7 +1266,6 @@ app.put("/update-setting_ticket/:id", isAdmin, async (req, res) => {
 			});
 		}
 
-		// Валидация count_number_row
 		if (
 			req.body.count_number_row &&
 			(!Array.isArray(req.body.count_number_row) ||
@@ -1342,7 +1289,6 @@ app.put("/update-setting_ticket/:id", isAdmin, async (req, res) => {
 			});
 		}
 
-		// Подготовка данных для обновления
 		const updateData = {
 			time:
 				req.body.time !== undefined
@@ -1357,12 +1303,8 @@ app.put("/update-setting_ticket/:id", isAdmin, async (req, res) => {
 				req.body.count_fill_user ?? settingTicket.count_fill_user,
 		};
 
-		// Применение изменений
 		await settingTicket.update(updateData, { transaction });
 		await transaction.commit();
-
-		// Принудительное обновление таймера
-		// await updateSingleSetting(settingTicketId);
 
 		res.json({
 			success: true,
@@ -1377,33 +1319,10 @@ app.put("/update-setting_ticket/:id", isAdmin, async (req, res) => {
 	}
 });
 
-const multiplierFactors = {
-	1.25: 2.5,
-	1.5: 3,
-	2: 4,
-};
-
-// Helper function to check diagonal match
-function checkDiagonalMatch(arrMultiplierNumber, trueNumbers, countNumberRow) {
-	const size = countNumberRow[0]; // Assuming square grid
-	if (arrMultiplierNumber.length !== size) {
-		return false;
-	}
-	for (let i = 0; i < size; i++) {
-		const diagonalIndex = i * size + i; // Main diagonal index (0,0), (1,1), etc.
-		if (arrMultiplierNumber[i] !== trueNumbers[diagonalIndex]) {
-			return false;
-		}
-	}
-	return true;
-}
-
 app.get("/filled_ticket", isUser, async (req, res) => {
 	try {
-		// Получение токена из заголовка авторизации
 		const token = req.headers.authorization;
 
-		// Находим аккаунт пользователя по токену
 		const account = await Account.findOne({
 			where: { token },
 			attributes: ["id"],
@@ -1415,7 +1334,6 @@ app.get("/filled_ticket", isUser, async (req, res) => {
 			});
 		}
 
-		// Находим информацию о пользователе
 		const userInfo = await UserInfo.findOne({
 			where: { id_acc: account.id },
 			attributes: ["id"],
@@ -1427,7 +1345,6 @@ app.get("/filled_ticket", isUser, async (req, res) => {
 			});
 		}
 
-		// Получаем все талоны пользователя, отсортированные по убыванию даты
 		const filledTickets = await FilledTicket.findAll({
 			where: { id_user: userInfo.id },
 			attributes: [
@@ -1443,7 +1360,7 @@ app.get("/filled_ticket", isUser, async (req, res) => {
 			order: [
 				["date", "DESC"],
 				["time", "DESC"],
-			], // Сортировка по дате и времени по убыванию
+			],
 			include: [
 				{
 					model: SettingTicket,
@@ -1484,45 +1401,34 @@ app.get("/filled_ticket", isUser, async (req, res) => {
 			filled_cell: ticket.filled_cell,
 			is_win: ticket.is_win,
 			history_operation_id: ticket.id_history_operation,
-			generated_ticket: ticket.ticket
+			setting: ticket.setting_ticket
 				? {
-						id: ticket.ticket.id,
-						setting_ticket_id: ticket.ticket.id_setting_ticket,
-						numbers: ticket.ticket.arr_number,
-						winning_numbers: ticket.ticket.arr_true_number,
-						setting: ticket.ticket.setting_ticket
-							? {
-									id: ticket.ticket.setting_ticket.id,
-									price: parseFloat(
-										String(
-											ticket.ticket.setting_ticket
-												.price_ticket
-										).replace(/[^0-9.]/g, "")
-									),
-									count_number_row:
-										ticket.ticket.setting_ticket
-											.count_number_row,
-									count_fill_user:
-										ticket.ticket.setting_ticket
-											.count_fill_user,
-							  }
-							: null,
-				  }
+					id: ticket.setting_ticket.id,
+					price: parseFloat(
+						String(ticket.setting_ticket.price_ticket).replace(
+							/[^0-9.]/g,
+							""
+						)
+					),
+					count_number_row:
+						ticket.setting_ticket.count_number_row,
+					count_fill_user: ticket.setting_ticket.count_fill_user,
+				}
 				: null,
 			history: ticket.history
 				? {
-						id: ticket.history.id,
-						change: parseFloat(
-							String(ticket.history.change).replace(
-								/[^0-9.]/g,
-								""
-							)
-						),
-						type_transaction: ticket.history.transaction_type
-							? ticket.history.transaction_type.naim
-							: null,
-						is_successful: ticket.history.is_succesfull,
-				  }
+					id: ticket.history.id,
+					change: parseFloat(
+						String(ticket.history.change).replace(
+							/[^0-9.]/g,
+							""
+						)
+					),
+					type_transaction: ticket.history.transaction_type
+						? ticket.history.transaction_type.naim
+						: null,
+					is_successful: ticket.history.is_succesfull,
+				}
 				: null,
 		}));
 
@@ -1539,11 +1445,10 @@ app.get("/filled_ticket", isUser, async (req, res) => {
 	}
 });
 
-// Ручка для создания записи в таблице filled_ticket (только для пользователя)
 app.post("/filled_ticket", isUser, async (req, res) => {
 	try {
 		const {
-			id_generated_ticket,
+			id_setting_ticket,
 			arr_number,
 			arr_multiplier_number,
 			multiplier,
@@ -1551,14 +1456,13 @@ app.post("/filled_ticket", isUser, async (req, res) => {
 		} = req.body;
 		const token = req.headers.authorization;
 
-		// Проверка входных данных
 		if (
-			!id_generated_ticket ||
+			!id_setting_ticket ||
 			!Array.isArray(arr_number) ||
 			arr_number.length === 0
 		) {
 			return res.status(400).json({
-				message: "Не указаны id_generated_ticket или arr_number",
+				message: "Не указаны id_setting_ticket или arr_number",
 			});
 		}
 
@@ -1574,13 +1478,11 @@ app.post("/filled_ticket", isUser, async (req, res) => {
 			});
 		}
 
-		// Находим пользователя
 		const account = await Account.findOne({ where: { token } });
 		if (!account) {
 			return res.status(401).json({ message: "Пользователь не найден" });
 		}
 
-		// Находим информацию о пользователе
 		const userInfo = await UserInfo.findOne({
 			where: { id_acc: account.id },
 		});
@@ -1590,10 +1492,9 @@ app.post("/filled_ticket", isUser, async (req, res) => {
 				.json({ message: "Информация о пользователе не найдена" });
 		}
 
-		// Находим настройку билета
 		const settingTicket = await SettingTicket.findOne({
 			where: {
-				id: id_generated_ticket,
+				id: id_setting_ticket,
 				is_start: true,
 			},
 		});
@@ -1603,7 +1504,6 @@ app.post("/filled_ticket", isUser, async (req, res) => {
 			});
 		}
 
-		// Проверяем цену билета с учетом price_multiplier
 		const basePrice = parseFloat(
 			String(settingTicket.price_ticket).replace(/[^0-9.]/g, "")
 		);
@@ -1614,7 +1514,6 @@ app.post("/filled_ticket", isUser, async (req, res) => {
 		}
 		const totalPrice = (basePrice * price_multiplier).toFixed(2);
 
-		// Проверяем баланс
 		const currentBalance = parseFloat(
 			String(userInfo.balance_real).replace(/[^0-9.]/g, "")
 		);
@@ -1624,7 +1523,6 @@ app.post("/filled_ticket", isUser, async (req, res) => {
 				.json({ message: "Недостаточно средств на балансе" });
 		}
 
-		// Валидация arr_number
 		const countFillUser = settingTicket.count_fill_user;
 		if (arr_number.length !== countFillUser) {
 			return res.status(400).json({
@@ -1653,8 +1551,7 @@ app.post("/filled_ticket", isUser, async (req, res) => {
 			Array.isArray(arr_multiplier_number) &&
 			arr_multiplier_number.length !== 0
 		) {
-			// Валидация arr_multiplier_number
-			const gridSize = settingTicket.count_number_row[0]; // Assuming square grid
+			const gridSize = settingTicket.count_number_row[0];
 			if (arr_multiplier_number.length !== gridSize) {
 				return res.status(400).json({
 					message: `Ожидается ${gridSize} чисел в arr_multiplier_number для диагонали`,
@@ -1669,14 +1566,11 @@ app.post("/filled_ticket", isUser, async (req, res) => {
 			}
 		}
 
-		// Начинаем транзакцию
 		const transaction = await sequelize.transaction();
 		try {
-			// Снимаем средства с баланса
 			userInfo.balance_real = (currentBalance - totalPrice).toFixed(2);
 			await userInfo.save({ transaction });
 
-			// Создаём запись в HistoryOperation
 			const typeTransaction = await TypeTransaction.findOne({
 				where: { naim: "Ставка в лото или играх (реальная валюта)" },
 				transaction,
@@ -1698,11 +1592,10 @@ app.post("/filled_ticket", isUser, async (req, res) => {
 				{ transaction }
 			);
 
-			// Создаём запись в FilledTicket
 			const newFilledTicket = await FilledTicket.create(
 				{
 					id_user: userInfo.id,
-					id_ticket: id_generated_ticket,
+					id_ticket: id_setting_ticket,
 					date: currentDate.toISOString().split("T")[0],
 					time: currentDate.toTimeString().split(" ")[0],
 					filled_cell: arr_number,
@@ -1714,7 +1607,6 @@ app.post("/filled_ticket", isUser, async (req, res) => {
 				{ transaction }
 			);
 
-			// Подтверждаем транзакцию
 			await transaction.commit();
 
 			res.status(201).json({
@@ -1726,8 +1618,8 @@ app.post("/filled_ticket", isUser, async (req, res) => {
 					date: newFilledTicket.date,
 					time: newFilledTicket.time,
 					filled_cell: newFilledTicket.filled_cell,
-					multiplier_numbers: newFilledTicket.newFilledTicket,
-					multiplier: newFilledTicket.newFilledTicket,
+					multiplier_numbers: newFilledTicket.multiplier_numbers,
+					multiplier: newFilledTicket.multiplier,
 					is_win: newFilledTicket.is_win,
 				},
 				newBalance: userInfo.balance_real,
@@ -1750,7 +1642,6 @@ app.get("/history_operation", isUser, async (req, res) => {
 		const token = req.headers.authorization.replace("Bearer ", "");
 		const { page = 1, limit = 10, type_operation } = req.query;
 
-		// Валидация параметров пагинации
 		const parsedPage = parseInt(page);
 		const parsedLimit = parseInt(limit);
 
@@ -1767,7 +1658,7 @@ app.get("/history_operation", isUser, async (req, res) => {
 				message: "Некорректное количество записей",
 			});
 		}
-		// Поиск аккаунта по токену
+
 		const account = await Account.findOne({
 			where: { token },
 			attributes: ["id"],
@@ -1781,7 +1672,6 @@ app.get("/history_operation", isUser, async (req, res) => {
 			});
 		}
 
-		// Поиск пользователя
 		const user = await UserInfo.findOne({
 			where: { id_acc: account.id },
 			attributes: ["id"],
@@ -1795,7 +1685,6 @@ app.get("/history_operation", isUser, async (req, res) => {
 			});
 		}
 
-		// Подготовка условий фильтрации
 		const whereClause = { id_user: user.id };
 
 		if (type_operation) {
@@ -1865,7 +1754,6 @@ app.get("/history_operation", isUser, async (req, res) => {
 	}
 });
 
-// Вспомогательная функция для перемешивания массива
 function shuffle(array) {
 	for (let i = array.length - 1; i > 0; i--) {
 		const j = Math.floor(Math.random() * (i + 1));
@@ -1874,19 +1762,15 @@ function shuffle(array) {
 	return array;
 }
 
-// Проверка, можно ли разместить число в клетке
 function canPlaceNumber(grid, row, col, num) {
-	// Проверка строки
 	for (let x = 0; x < 9; x++) {
 		if (grid[row][x] === num) return false;
 	}
 
-	// Проверка столбца
 	for (let x = 0; x < 9; x++) {
 		if (grid[x][col] === num) return false;
 	}
 
-	// Проверка блока 3x3
 	const startRow = Math.floor(row / 3) * 3;
 	const startCol = Math.floor(col / 3) * 3;
 	for (let i = 0; i < 3; i++) {
@@ -1898,7 +1782,6 @@ function canPlaceNumber(grid, row, col, num) {
 	return true;
 }
 
-// Заполнение диагональных блоков 3x3
 function fillDiagonalBlocks(grid) {
 	for (let block = 0; block < 3; block++) {
 		const startRow = block * 3;
@@ -1913,38 +1796,29 @@ function fillDiagonalBlocks(grid) {
 	}
 }
 
-// Рекурсивная функция для заполнения оставшихся клеток
 function solveGrid(grid, row = 0, col = 0) {
-	if (row === 9) return true; // Сетка заполнена
-	if (col === 9) return solveGrid(grid, row + 1, 0); // Переход на следующую строку
-	if (grid[row][col] !== 0) return solveGrid(grid, row, col + 1); // Пропускаем заполненные клетки
+	if (row === 9) return true;
+	if (col === 9) return solveGrid(grid, row + 1, 0);
+	if (grid[row][col] !== 0) return solveGrid(grid, row, col + 1);
 
 	const numbers = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]);
 	for (const num of numbers) {
 		if (canPlaceNumber(grid, row, col, num)) {
 			grid[row][col] = num;
 			if (solveGrid(grid, row, col + 1)) return true;
-			grid[row][col] = 0; // Откат, если решение не найдено
+			grid[row][col] = 0;
 		}
 	}
 	return false;
 }
 
-// Генерация полной сетки судоку
 function generateFullGrid() {
-	// Инициализация пустой сетки 9x9
 	const grid = Array.from({ length: 9 }, () => Array(9).fill(0));
-
-	// Заполняем диагональные блоки
 	fillDiagonalBlocks(grid);
-
-	// Заполняем оставшиеся клетки
 	solveGrid(grid);
-
 	return grid;
 }
 
-// Удаление случайных клеток из сетки
 function removeRandomCells(grid, cellsToRemove) {
 	const positions = [];
 	for (let r = 0; r < 9; r++) {
@@ -1959,17 +1833,14 @@ function removeRandomCells(grid, cellsToRemove) {
 	}
 }
 
-// Генерация случайного числа в диапазоне [min, max]
 function generateRandomNumber(min, max) {
 	return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-// Расчёт вероятности завершения группы (строка, столбец, блок)
 function calculateCompletionProbability(grid, cells) {
 	let emptyCells = 0;
 	const usedNumbers = new Set();
 
-	// Подсчитываем пустые клетки и использованные числа
 	for (const [r, c] of cells) {
 		if (grid[r][c] === 0) {
 			emptyCells++;
@@ -1978,10 +1849,8 @@ function calculateCompletionProbability(grid, cells) {
 		}
 	}
 
-	// Если все клетки заполнены, вероятность 100%
 	if (emptyCells === 0) return 100;
 
-	// Подсчитываем возможные числа для каждой пустой клетки
 	let totalCombinations = 1;
 	const availableNumbers = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(
 		(num) => !usedNumbers.has(num)
@@ -1990,8 +1859,6 @@ function calculateCompletionProbability(grid, cells) {
 		totalCombinations *= availableNumbers.length - i;
 	}
 
-	// Простая эвристика: вероятность обратно пропорциональна количеству пустых клеток
-	// и зависит от доступных чисел
 	const baseProbability = (availableNumbers.length / emptyCells) * 100;
 	return Math.min(
 		100,
@@ -1999,18 +1866,15 @@ function calculateCompletionProbability(grid, cells) {
 	);
 }
 
-// Проверка завершённых групп и расчёт выплат
 function checkCompletions(grid, setting) {
 	let payout = 0;
 
-	// Проверка строк
 	for (let r = 0; r < 9; r++) {
 		if (grid[r].every((cell) => cell !== 0)) {
 			payout += setting.payout_row_col;
 		}
 	}
 
-	// Проверка столбцов
 	for (let c = 0; c < 9; c++) {
 		const column = Array.from({ length: 9 }, (_, r) => grid[r][c]);
 		if (column.every((cell) => cell !== 0)) {
@@ -2018,7 +1882,6 @@ function checkCompletions(grid, setting) {
 		}
 	}
 
-	// Проверка блоков 3x3
 	for (let br = 0; br < 3; br++) {
 		for (let bc = 0; bc < 3; bc++) {
 			const block = [];
@@ -2033,7 +1896,6 @@ function checkCompletions(grid, setting) {
 		}
 	}
 
-	// Проверка полного судоку
 	if (grid.every((row) => row.every((cell) => cell !== 0))) {
 		payout += setting.payout_complete;
 	}
@@ -2041,15 +1903,15 @@ function checkCompletions(grid, setting) {
 	return payout;
 }
 
-// 1. Создание новой игры
 app.post("/game/start", isUser, async (req, res) => {
-	const { id_setting_game } = req.body; // ID настройки игры, выбранной пользователем
+	const { id_setting_game } = req.body;
 	const token = req.headers.authorization.replace("Bearer ", "");
 	const transaction = await sequelize.transaction();
 
 	try {
 		const account = await Account.findOne({ where: { token } });
 		if (!account) {
+			await transaction.rollback();
 			return res.status(401).json({ message: "Пользователь не найден" });
 		}
 
@@ -2057,18 +1919,12 @@ app.post("/game/start", isUser, async (req, res) => {
 			where: { id_acc: account.id },
 		});
 		if (!userInfo) {
-			return res
-				.status(404)
-				.json({ message: "Информация о пользователе не найдена" });
-		}
-		if (!userInfo) {
 			await transaction.rollback();
 			return res
 				.status(404)
 				.json({ message: "Информация о пользователе не найдена" });
 		}
 
-		// Проверяем, есть ли активная игра
 		const activeGame = await Game.findOne({
 			where: { id_user: userInfo.id, is_active: true },
 			transaction,
@@ -2080,7 +1936,6 @@ app.post("/game/start", isUser, async (req, res) => {
 				.json({ message: "У вас уже есть активная игра" });
 		}
 
-		// Проверяем настройку игры
 		const setting = await SettingGame.findOne({
 			where: { id: id_setting_game, is_active: true },
 			transaction,
@@ -2092,12 +1947,10 @@ app.post("/game/start", isUser, async (req, res) => {
 				.json({ message: "Настройка игры не найдена или неактивна" });
 		}
 
-		// Генерируем сетку судоку
-		const grid = generateFullGrid(); // Реализовать на сервере
-		removeRandomCells(grid, setting.initial_filled_cells); // Удаляем клетки согласно настройке
+		const grid = generateFullGrid();
+		removeRandomCells(grid, setting.initial_filled_cells);
 		const currentNumber = await generateRandomNumber(1, 9);
 
-		// Создаем новую игру
 		const game = await Game.create(
 			{
 				id_user: userInfo.id,
@@ -2116,177 +1969,55 @@ app.post("/game/start", isUser, async (req, res) => {
 		);
 
 		await transaction.commit();
-		res.json({
+
+		res.status(201).json({
 			success: true,
 			game: {
 				id: game.id,
 				grid: game.grid,
 				current_number: game.current_number,
-				skip_cost: setting.initial_skill_cost,
-				bonus_balance: userInfo.balance_virtual,
-				real_balance: userInfo.balance_real,
-				total_bets: game.total_bets,
-				total_payouts: game.total_payouts,
+				skip_count: game.skip_count,
+				current_move_cost: parseFloat(game.current_move_cost),
+				total_bets: parseFloat(game.total_bets),
+				total_payouts: parseFloat(game.total_payouts),
+				is_active: game.is_active,
+				date_created: game.date_created,
+				time_created: game.time_created,
+				setting: {
+					base_move_cost: parseFloat(setting.base_move_cost),
+					initial_skill_cost: parseFloat(setting.initial_skill_cost),
+					payout_row_col: parseFloat(setting.payout_row_col),
+					payout_block: parseFloat(setting.payout_block),
+					payout_complete: parseFloat(setting.payout_complete),
+					initial_filled_cells: setting.initial_filled_cells,
+				},
 			},
 		});
 	} catch (error) {
 		await transaction.rollback();
 		console.error("Ошибка при создании игры:", error);
-		res.status(500).json({ message: "Ошибка сервера: " + error.message });
+		res.status(500).json({
+			success: false,
+			message: "Ошибка сервера: " + error.message,
+		});
 	}
 });
 
-// 2. Получение списка доступных настроек игры
-app.get("/game/settings", isUser, async (req, res) => {
-	try {
-		const settings = await SettingGame.findAll({
-			where: { is_active: true },
-			attributes: [
-				"id",
-				"base_move_cost",
-				"initial_skill_cost",
-				"payout_row_col",
-				"payout_block",
-				"payout_complete",
-				"initial_filled_cells",
-			],
-		});
-		res.json({ success: true, settings });
-	} catch (error) {
-		console.error("Ошибка при получении настроек:", error);
-		res.status(500).json({ message: "Ошибка сервера: " + error.message });
-	}
-});
-
-// 3. Получение данных по незаконченной (активной) игре
-app.get("/game/active", isUser, async (req, res) => {
-	const token = req.headers.authorization.replace("Bearer ", "");
-
-	try {
-		const account = await Account.findOne({ where: { token } });
-		if (!account) {
-			return res.status(401).json({ message: "Пользователь не найден" });
-		}
-
-		const userInfo = await UserInfo.findOne({
-			where: { id_acc: account.id },
-		});
-		if (!userInfo) {
-			return res
-				.status(404)
-				.json({ message: "Информация о пользователе не найдена" });
-		}
-
-		const game = await Game.findOne({
-			where: { id_user: userInfo.id, is_active: true },
-			include: [{ model: SettingGame, as: "setting" }],
-		});
-		if (!game) {
-			return res
-				.status(404)
-				.json({ message: "Активная игра не найдена" });
-		}
-
-		res.json({
-			success: true,
-			game: {
-				id: game.id,
-				grid: game.grid,
-				current_number: game.current_number,
-				skip_cost:
-					game.setting.initial_skill_cost +
-					game.skip_count * game.setting.initial_skill_cost,
-				bonus_balance: userInfo.balance_virtual,
-				real_balance: userInfo.balance_real,
-				total_bets: game.total_bets,
-				total_payouts: game.total_payouts,
-			},
-		});
-	} catch (error) {
-		console.error("Ошибка при получении активной игры:", error);
-		res.status(500).json({ message: "Ошибка сервера: " + error.message });
-	}
-});
-
-// 4. Получение результатов предыдущих игр
-app.get("/game/history", isUser, async (req, res) => {
-	const token = req.headers.authorization.replace("Bearer ", "");
-
-	try {
-		const account = await Account.findOne({ where: { token } });
-		if (!account) {
-			return res.status(401).json({ message: "Пользователь не найден" });
-		}
-
-		const userInfo = await UserInfo.findOne({
-			where: { id_acc: account.id },
-		});
-		if (!userInfo) {
-			return res
-				.status(404)
-				.json({ message: "Информация о пользователе не найдена" });
-		}
-
-		const games = await Game.findAll({
-			where: { id_user: userInfo.id, is_active: false },
-			attributes: [
-				"id",
-				"total_bets",
-				"total_payouts",
-				"date_created",
-				"time_created",
-			],
-			include: [
-				{
-					model: SettingGame,
-					as: "setting",
-					attributes: [
-						"base_move_cost",
-						"initial_skill_cost",
-						"payout_row_col",
-						"payout_block",
-						"payout_complete",
-					],
-				},
-			],
-			order: [
-				["date_created", "DESC"],
-				["time_created", "DESC"],
-			],
-		});
-
-		res.json({
-			success: true,
-			games: games.map((game) => ({
-				id: game.id,
-				total_bets: game.total_bets,
-				total_payouts: game.total_payouts,
-				profit: game.total_payouts - game.total_bets,
-				date_created: game.date_created,
-				time_created: game.time_created,
-				settings: game.setting,
-			})),
-		});
-	} catch (error) {
-		console.error("Ошибка при получении истории игр:", error);
-		res.status(500).json({ message: "Ошибка сервера: " + error.message });
-	}
-});
-
-// 5. Выполнение хода
 app.post("/game/move", isUser, async (req, res) => {
-	const { row, col } = req.body;
-	const transaction = await sequelize.transaction();
+	const { game_id, cells } = req.body;
 	const token = req.headers.authorization.replace("Bearer ", "");
+	const transaction = await sequelize.transaction();
 
 	try {
 		const account = await Account.findOne({ where: { token } });
 		if (!account) {
+			await transaction.rollback();
 			return res.status(401).json({ message: "Пользователь не найден" });
 		}
 
 		const userInfo = await UserInfo.findOne({
 			where: { id_acc: account.id },
+			transaction,
 		});
 		if (!userInfo) {
 			await transaction.rollback();
@@ -2296,138 +2027,183 @@ app.post("/game/move", isUser, async (req, res) => {
 		}
 
 		const game = await Game.findOne({
-			where: { id_user: userInfo.id, is_active: true },
+			where: { id: game_id, id_user: userInfo.id, is_active: true },
 			include: [{ model: SettingGame, as: "setting" }],
 			transaction,
 		});
 		if (!game) {
 			await transaction.rollback();
-			return res.status(404).json({ message: "Игра не найдена" });
+			return res
+				.status(404)
+				.json({ message: "Игра не найдена или не активна" });
 		}
 
-		console.log(
-			"\n\n\n\ndgfdfgdfgdfgdfgfd" +
-				userInfo.balance_virtual.replace(/[^0-9.]/g, "")
-		);
-		// Проверяем баланс и стоимость хода
-		const cost =
-			game.current_move_cost +
-			game.skip_count * game.setting.initial_skill_cost;
-		if (userInfo.balance_virtual.replace(/[^0-9.]/g, "") < cost) {
-			await transaction.rollback();
-			return res.status(400).json({ message: "Недостаточно бонусов" });
-		}
-
-		// Проверяем возможность размещения числа
-		const grid = game.grid;
-		if (grid[row][col] !== 0) {
-			await transaction.rollback();
-			return res.status(400).json({ message: "Клетка уже заполнена" });
-		}
-		if (!canPlaceNumber(grid, row, col, game.current_number)) {
+		if (!Array.isArray(cells) || cells.length === 0) {
 			await transaction.rollback();
 			return res
 				.status(400)
-				.json({ message: "Нельзя разместить это число" });
+				.json({ message: "Не указаны клетки для хода" });
 		}
 
-		// Обновляем сетку
-		grid[row][col] = game.current_number;
-		userInfo.balance_virtual =
-			userInfo.balance_virtual.replace(/[^0-9.]/g, "") - cost;
-		game.total_bets += cost;
-		game.skip_count = 0;
-		game.current_move_cost = game.setting.base_move_cost;
+		const setting = game.setting;
+		const currentNumber = game.current_number;
+		const moveCost = parseFloat(game.current_move_cost);
+		const userBalance = parseFloat(userInfo.balance_real);
 
-		// Проверяем завершения и начисляем выплаты
-		const payout = checkCompletions(grid, game.setting);
+		if (userBalance < moveCost) {
+			await transaction.rollback();
+			return res
+				.status(400)
+				.json({ message: "Недостаточно средств для хода" });
+		}
+
+		let grid = game.grid;
+		let validMove = false;
+
+		for (const [row, col] of cells) {
+			if (
+				row < 0 ||
+				row >= 9 ||
+				col < 0 ||
+				col >= 9 ||
+				grid[row][col] !== 0
+			) {
+				continue;
+			}
+			if (canPlaceNumber(grid, row, col, currentNumber)) {
+				grid[row][col] = currentNumber;
+				validMove = true;
+			}
+		}
+
+		if (!validMove) {
+			await transaction.rollback();
+			return res
+				.status(400)
+				.json({ message: "Невозможно разместить число в указанных клетках" });
+		}
+
+		userInfo.balance_real = (userBalance - moveCost).toFixed(2);
+		game.total_bets = (
+			parseFloat(game.total_bets) + moveCost
+		).toFixed(2);
+
+		const payout = checkCompletions(grid, setting);
 		if (payout > 0) {
-			userInfo.balance_virtual =
-				userInfo.balance_virtual.replace(/[^0-9.]/g, "") + payout;
-			game.total_payouts += payout;
+			userInfo.balance_real = (
+				parseFloat(userInfo.balance_real) + payout
+			).toFixed(2);
+			game.total_payouts = (
+				parseFloat(game.total_payouts) + payout
+			).toFixed(2);
+		}
+
+		const newNumber = await generateRandomNumber(1, 9);
+		game.current_number = newNumber;
+		game.grid = grid;
+
+		const typeTransaction = await TypeTransaction.findOne({
+			where: { naim: "Ставка в лото или играх (реальная валюта)" },
+			transaction,
+		});
+		if (!typeTransaction) {
+			await transaction.rollback();
+			throw new Error(
+				"Тип транзакции 'Ставка в лото или играх (реальная валюта)' не найден"
+			);
+		}
+
+		const currentDate = new Date();
+		await HistoryOperation.create(
+			{
+				id_user: userInfo.id,
+				change: (-moveCost).toFixed(2),
+				date: currentDate.toISOString().split("T")[0],
+				time: currentDate.toTimeString().split(" ")[0],
+				type_transaction: typeTransaction.id,
+				is_succesfull: true,
+			},
+			{ transaction }
+		);
+
+		if (payout > 0) {
+			const winTransaction = await TypeTransaction.findOne({
+				where: { naim: "Выигрыш в лото (реальная валюта)" },
+				transaction,
+			});
+			if (!winTransaction) {
+				await transaction.rollback();
+				throw new Error(
+					"Тип транзакции 'Выигрыш в лото (реальная валюта)' не найден"
+				);
+			}
 			await HistoryOperation.create(
 				{
 					id_user: userInfo.id,
-					change: payout,
-					type_transaction: (
-						await TypeTransaction.findOne({
-							where: { naim: "Выигрыш в судоку" },
-							transaction,
-						})
-					).id,
+					change: payout.toFixed(2),
+					date: currentDate.toISOString().split("T")[0],
+					time: currentDate.toTimeString().split(" ")[0],
+					type_transaction: winTransaction.id,
 					is_succesfull: true,
-					date: new Date().toISOString().split("T")[0],
-					time: new Date().toTimeString().split(" ")[0],
 				},
 				{ transaction }
 			);
 		}
 
-		// Логируем ход
-		await HistoryOperation.create(
-			{
-				id_user: userInfo.id,
-				change: -cost,
-				type_transaction: (
-					await TypeTransaction.findOne({
-						where: { naim: "Ход в судоку (бонусы)" },
-						transaction,
-					})
-				).id,
-				is_succesfull: true,
-				date: new Date().toISOString().split("T")[0],
-				time: new Date().toTimeString().split(" ")[0],
-			},
-			{ transaction }
-		);
+		const completionProbability = calculateCompletionProbability(grid, cells);
 
-		// Генерируем новое число
-		const newNumber = await generateRandomNumber(1, 9);
-		await game.update(
-			{
-				grid,
-				current_number: newNumber,
-				skip_count: game.skip_count,
-				current_move_cost: game.current_move_cost,
-				total_bets: game.total_bets,
-				total_payouts: game.total_payouts,
-			},
-			{ transaction }
-		);
+		if (completionProbability >= 100) {
+			game.is_active = false;
+		}
+
 		await userInfo.save({ transaction });
+		await game.save({ transaction });
 
 		await transaction.commit();
-		res.json({
+
+		res.status(200).json({
 			success: true,
-			grid,
-			current_number: newNumber,
-			skip_cost: game.setting.initial_skill_cost,
-			bonus_balance: userInfo.balance_virtual.replace(/[^0-9.]/g, ""),
-			real_balance: userInfo.balance_real,
-			total_bets: game.total_bets,
-			total_payouts: game.total_payouts,
-			message: "Ход успешен!",
+			game: {
+				id: game.id,
+				grid: game.grid,
+				current_number: game.current_number,
+				skip_count: game.skip_count,
+				current_move_cost: parseFloat(game.current_move_cost),
+				total_bets: parseFloat(game.total_bets),
+				total_payouts: parseFloat(game.total_payouts),
+				is_active: game.is_active,
+				date_created: game.date_created,
+				time_created: game.time_created,
+			},
+			new_balance: parseFloat(userInfo.balance_real),
+			payout: payout,
+			completion_probability: completionProbability,
 		});
 	} catch (error) {
 		await transaction.rollback();
 		console.error("Ошибка при выполнении хода:", error);
-		res.status(500).json({ message: "Ошибка сервера: " + error.message });
+		res.status(500).json({
+			success: false,
+			message: "Ошибка сервера: " + error.message,
+		});
 	}
 });
 
-// 6. Пропуск хода
 app.post("/game/skip", isUser, async (req, res) => {
-	const transaction = await sequelize.transaction();
+	const { game_id } = req.body;
 	const token = req.headers.authorization.replace("Bearer ", "");
+	const transaction = await sequelize.transaction();
 
 	try {
 		const account = await Account.findOne({ where: { token } });
 		if (!account) {
+			await transaction.rollback();
 			return res.status(401).json({ message: "Пользователь не найден" });
 		}
 
 		const userInfo = await UserInfo.findOne({
 			where: { id_acc: account.id },
+			transaction,
 		});
 		if (!userInfo) {
 			await transaction.rollback();
@@ -2437,220 +2213,169 @@ app.post("/game/skip", isUser, async (req, res) => {
 		}
 
 		const game = await Game.findOne({
-			where: { id_user: userInfo.id, is_active: true },
+			where: { id: game_id, id_user: userInfo.id, is_active: true },
 			include: [{ model: SettingGame, as: "setting" }],
 			transaction,
 		});
 		if (!game) {
 			await transaction.rollback();
-			return res.status(404).json({ message: "Игра не найдена" });
+			return res
+				.status(404)
+				.json({ message: "Игра не найдена или не активна" });
 		}
 
-		// Проверяем баланс и стоимость пропуска
-		const skipCost =
-			game.setting.initial_skill_cost +
-			game.skip_count * game.setting.initial_skill_cost;
-		if (userInfo.balance_virtual < skipCost) {
+		const setting = game.setting;
+		const skipCost = parseFloat(setting.initial_skill_cost);
+		const userBalance = parseFloat(userInfo.balance_real);
+
+		if (userBalance < skipCost) {
 			await transaction.rollback();
 			return res
 				.status(400)
-				.json({ message: "Недостаточно бонусов для пропуска" });
+				.json({ message: "Недостаточно средств для пропуска" });
 		}
 
-		// Обновляем данные
-		userInfo.balance_virtual -= skipCost;
-		game.total_bets += skipCost;
+		userInfo.balance_real = (userBalance - skipCost).toFixed(2);
 		game.skip_count += 1;
-		const newNumber = await generateRandomNumber(1, 9);
+		game.total_bets = (
+			parseFloat(game.total_bets) + skipCost
+		).toFixed(2);
 
-		// Логируем пропуск
+		const newNumber = await generateRandomNumber(1, 9);
+		game.current_number = newNumber;
+
+		const typeTransaction = await TypeTransaction.findOne({
+			where: { naim: "Ставка в лото или играх (реальная валюта)" },
+			transaction,
+		});
+		if (!typeTransaction) {
+			await transaction.rollback();
+			throw new Error(
+				"Тип транзакции 'Ставка в лото или играх (реальная валюта)' не найден"
+			);
+		}
+
+		const currentDate = new Date();
 		await HistoryOperation.create(
 			{
 				id_user: userInfo.id,
-				change: -skipCost,
-				type_transaction: (
-					await TypeTransaction.findOne({
-						where: { naim: "Пропуск хода в судоку (бонусы)" },
-						transaction,
-					})
-				).id,
+				change: (-skipCost).toFixed(2),
+				date: currentDate.toISOString().split("T")[0],
+				time: currentDate.toTimeString().split(" ")[0],
+				type_transaction: typeTransaction.id,
 				is_succesfull: true,
-				date: new Date().toISOString().split("T")[0],
-				time: new Date().toTimeString().split(" ")[0],
 			},
 			{ transaction }
 		);
 
-		await game.update(
-			{
-				current_number: newNumber,
-				skip_count: game.skip_count,
-				total_bets: game.total_bets,
-			},
-			{ transaction }
-		);
 		await userInfo.save({ transaction });
+		await game.save({ transaction });
 
 		await transaction.commit();
-		res.json({
+
+		res.status(200).json({
 			success: true,
-			current_number: newNumber,
-			skip_cost:
-				game.setting.initial_skill_cost +
-				game.skip_count * game.setting.initial_skill_cost,
-			bonus_balance: userInfo.balance_virtual,
-			real_balance: userInfo.balance_real,
-			total_bets: game.total_bets,
-			total_payouts: game.total_payouts,
-			message: `Пропуск. Новое число: ${newNumber}`,
+			game: {
+				id: game.id,
+				grid: game.grid,
+				current_number: game.current_number,
+				skip_count: game.skip_count,
+				current_move_cost: parseFloat(game.current_move_cost),
+				total_bets: parseFloat(game.total_bets),
+				total_payouts: parseFloat(game.total_payouts),
+				is_active: game.is_active,
+				date_created: game.date_created,
+				time_created: game.time_created,
+			},
+			new_balance: parseFloat(userInfo.balance_real),
 		});
 	} catch (error) {
 		await transaction.rollback();
 		console.error("Ошибка при пропуске хода:", error);
-		res.status(500).json({ message: "Ошибка сервера: " + error.message });
+		res.status(500).json({
+			success: false,
+			message: "Ошибка сервера: " + error.message,
+		});
 	}
 });
 
-// 7. Получение вероятностей (уже есть, но добавлю для полноты)
-app.get("/game/probabilities", isUser, async (req, res) => {
+app.post("/game/end", isUser, async (req, res) => {
+	const { game_id } = req.body;
 	const token = req.headers.authorization.replace("Bearer ", "");
+	const transaction = await sequelize.transaction();
 
 	try {
 		const account = await Account.findOne({ where: { token } });
 		if (!account) {
+			await transaction.rollback();
 			return res.status(401).json({ message: "Пользователь не найден" });
 		}
 
 		const userInfo = await UserInfo.findOne({
 			where: { id_acc: account.id },
+			transaction,
 		});
 		if (!userInfo) {
+			await transaction.rollback();
 			return res
 				.status(404)
 				.json({ message: "Информация о пользователе не найдена" });
 		}
 
 		const game = await Game.findOne({
-			where: { id_user: userInfo.id, is_active: true },
+			where: { id: game_id, id_user: userInfo.id, is_active: true },
+			transaction,
 		});
 		if (!game) {
-			return res.status(404).json({ message: "Игра не найдена" });
+			await transaction.rollback();
+			return res
+				.status(404)
+				.json({ message: "Игра не найдена или не активна" });
 		}
 
-		const probabilities = {
-			rows: [],
-			cols: [],
-			blocks: [],
-		};
+		game.is_active = false;
+		await game.save({ transaction });
 
-		// Расчет вероятностей для строк
-		for (let r = 0; r < 9; r++) {
-			const cells = Array.from({ length: 9 }, (_, c) => [r, c]);
-			probabilities.rows.push({
-				row: r + 1,
-				probability: calculateCompletionProbability(game.grid, cells),
-			});
-		}
+		await transaction.commit();
 
-		// Расчет вероятностей для столбцов
-		for (let c = 0; c < 9; c++) {
-			const cells = Array.from({ length: 9 }, (_, r) => [r, c]);
-			probabilities.cols.push({
-				col: c + 1,
-				probability: calculateCompletionProbability(game.grid, cells),
-			});
-		}
-
-		// Расчет вероятностей для блоков
-		for (let br = 0; br < 3; br++) {
-			for (let bc = 0; bc < 3; bc++) {
-				const cells = [];
-				for (let r = br * 3; r < br * 3 + 3; r++) {
-					for (let c = bc * 3; c < bc * 3 + 3; c++) {
-						cells.push([r, c]);
-					}
-				}
-				probabilities.blocks.push({
-					block: br * 3 + bc + 1,
-					probability: calculateCompletionProbability(
-						game.grid,
-						cells
-					),
-				});
-			}
-		}
-
-		res.json({ success: true, probabilities });
+		res.status(200).json({
+			success: true,
+			message: "Игра завершена",
+			game: {
+				id: game.id,
+				is_active: game.is_active,
+				total_bets: parseFloat(game.total_bets),
+				total_payouts: parseFloat(game.total_payouts),
+			},
+		});
 	} catch (error) {
-		console.error("Ошибка при получении вероятностей:", error);
-		res.status(500).json({ message: "Ошибка сервера: " + error.message });
+		await transaction.rollback();
+		console.error("Ошибка при завершении игры:", error);
+		res.status(500).json({
+			success: false,
+			message: "Ошибка сервера: " + error.message,
+		});
 	}
 });
 
-// Пример функции checkCompletions (нужна для /game/move)
-function checkCompletions(grid, setting) {
-	let payout = 0;
-
-	// Проверка строк
-	for (let r = 0; r < 9; r++) {
-		if (grid[r].every((cell) => cell !== 0)) {
-			payout += setting.payout_row_col;
-		}
+app.listen(port, async () => {
+	try {
+		await connectToDatabase();
+		console.log(`Сервер запущен на порту ${port}`);
+		await updateSettingsCache();
+	} catch (error) {
+		console.error("Ошибка при запуске сервера:", error);
 	}
-
-	// Проверка столбцов
-	for (let c = 0; c < 9; c++) {
-		const column = Array.from({ length: 9 }, (_, r) => grid[r][c]);
-		if (column.every((cell) => cell !== 0)) {
-			payout += setting.payout_row_col;
-		}
-	}
-
-	// Проверка блоков 3x3
-	for (let br = 0; br < 3; br++) {
-		for (let bc = 0; bc < 3; bc++) {
-			const block = [];
-			for (let r = br * 3; r < br * 3 + 3; r++) {
-				for (let c = bc * 3; c < bc * 3 + 3; c++) {
-					block.push(grid[r][c]);
-				}
-			}
-			if (block.every((cell) => cell !== 0)) {
-				payout += setting.payout_block;
-			}
-		}
-	}
-
-	// Проверка полного судоку
-	if (grid.every((row) => row.every((cell) => cell !== 0))) {
-		payout += setting.payout_complete;
-	}
-
-	return payout;
-}
-
-http.createServer(app).listen(port, () => {
-	console.log(`HTTP-сервер запущен на http://localhost:${port}`);
 });
 
 process.on("SIGINT", async () => {
-	try {
-		console.log("Получен сигнал SIGINT. Завершение работы...");
-		await disconnectFromDatabase();
-	} catch (error) {
-		console.error("Ошибка при отключении от БД:", error);
-	} finally {
-		process.exit();
+	console.log("Завершение работы сервера...");
+	for (const settingId of Object.keys(intervalJobs)) {
+		if (intervalJobs[settingId]) {
+			clearInterval(intervalJobs[settingId]);
+			console.log(`Остановлен таймер для настройки ${settingId}`);
+		}
 	}
-});
-
-process.on("SIGTERM", async () => {
-	try {
-		console.log("Получен сигнал SIGTERM. Завершение работы...");
-		await disconnectFromDatabase();
-	} catch (error) {
-		console.error("Ошибка при отключении от БД:", error);
-	} finally {
-		process.exit();
-	}
+	await disconnectFromDatabase();
+	process.exit(0);
 });
