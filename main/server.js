@@ -63,30 +63,6 @@ app.use(
 	})
 );
 
-async function generateRandomNumber(min, max) {
-	try {
-		const cpu = await si.cpu();
-		const cpuTemp = await si.cpuTemperature();
-		const cpuLoad = await si.currentLoad();
-		const time = Date.now();
-
-		let seed = 0;
-		seed += parseFloat(cpu.speed) || 0;
-		seed += parseFloat(cpuTemp.main) || 0;
-		seed += parseFloat(cpuLoad.currentLoad) || 0;
-		seed += time;
-
-		seed = Math.floor(seed * 1000);
-		const range = max - min + 1;
-		const randomNumber = min + (seed % range);
-
-		return randomNumber;
-	} catch (error) {
-		console.error("Ошибка при получении системных данных:", error);
-		return Math.floor(min + Math.random() * (max - min + 1));
-	}
-}
-
 async function generateTicketNumbers(count_number_row) {
 	console.log(`Generating numbers for count_number_row: ${count_number_row}`);
 	const totalNumbers = Array.isArray(count_number_row)
@@ -102,7 +78,7 @@ async function generateTicketNumbers(count_number_row) {
 	}
 	const arr_number = [];
 	for (let i = 0; i < numbersToSelect; i++) {
-		const randomNum = await generateRandomNumber(1, totalNumbers);
+		const randomNum = await crypto.randomInt(1, totalNumbers);
 		if (!arr_number.includes(randomNum)) {
 			arr_number.push(randomNum);
 		} else {
@@ -1887,10 +1863,6 @@ function removeRandomCells(grid, cellsToRemove) {
 	}
 }
 
-function generateRandomNumber(min, max) {
-	return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
 function calculateCompletionProbability(grid, cells) {
 	let emptyCells = 0;
 	const usedNumbers = new Set();
@@ -2003,7 +1975,7 @@ app.post("/game/start", isUser, async (req, res) => {
 
 		const grid = generateFullGrid();
 		removeRandomCells(grid, setting.initial_filled_cells);
-		const currentNumber = await generateRandomNumber(1, 9);
+		const currentNumber = await crypto.randomInt(1, 9);
 
 		const game = await Game.create(
 			{
@@ -2150,7 +2122,7 @@ app.post("/game/move", isUser, async (req, res) => {
 			).toFixed(2);
 		}
 
-		const newNumber = await generateRandomNumber(1, 9);
+		const newNumber = await crypto.randomInt(1, 9);
 		game.current_number = newNumber;
 		game.grid = grid;
 
@@ -2294,7 +2266,7 @@ app.post("/game/skip", isUser, async (req, res) => {
 		game.skip_count += 1;
 		game.total_bets = (parseFloat(game.total_bets) + skipCost).toFixed(2);
 
-		const newNumber = await generateRandomNumber(1, 9);
+		const newNumber = await crypto.randomInt(1, 9);
 		game.current_number = newNumber;
 
 		const typeTransaction = await TypeTransaction.findOne({
