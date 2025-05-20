@@ -2222,8 +2222,13 @@ app.post("/game/move", isUser, async (req, res) => {
 		const cost =
 			parseFloat(game.current_move_cost) +
 			game.skip_count * parseFloat(game.setting.initial_skill_cost);
-		console.log("BALANCE", userInfo);
-		if (userInfo.bonus_balance < cost) {
+		console.log(
+			"BALANCE",
+			userInfo.balance_virtual?.replace("$", "")?.replace(/,/g, "")
+		);
+		if (
+			userInfo.balance_virtual?.replace("$", "")?.replace(/,/g, "") < cost
+		) {
 			await transaction.rollback();
 			return res.status(400).json({ message: "Недостаточно бонусов" });
 		}
@@ -2232,7 +2237,10 @@ app.post("/game/move", isUser, async (req, res) => {
 		game.grid[row][col] = game.current_number;
 
 		// Обновление баланса и ставок
-		userInfo.bonus_balance -= cost;
+		userInfo.bonus_balance = userInfo.balance_virtual
+			?.replace("$", "")
+			?.replace(/,/g, "");
+		-cost;
 		game.total_bets = parseFloat(game.total_bets) + cost;
 		game.skip_count = 0;
 		game.current_move_cost = parseFloat(game.setting.base_move_cost);
@@ -2244,7 +2252,10 @@ app.post("/game/move", isUser, async (req, res) => {
 		);
 		game.grid = updatedGrid;
 		game.total_payouts = parseFloat(game.total_payouts) + payout;
-		userInfo.bonus_balance += payout;
+		userInfo.bonus_balance = userInfo.balance_virtual
+			?.replace("$", "")
+			?.replace(/,/g, "");
+		+payout;
 
 		// Генерация нового числа
 		game.current_number = await generateRandomNumber(1, 9);
@@ -2275,7 +2286,9 @@ app.post("/game/move", isUser, async (req, res) => {
 				is_active: game.is_active,
 				date_created: game.date_created,
 				time_created: game.time_created,
-				bonus_balance: userInfo.bonus_balance,
+				bonus_balance: userInfo.balance_virtual
+					?.replace("$", "")
+					?.replace(/,/g, ""),
 				real_balance: userInfo.real_balance || 10.0,
 			},
 			payout,
