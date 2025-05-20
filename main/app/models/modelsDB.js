@@ -481,7 +481,7 @@ GeneratedTicket.hasMany(FilledTicket, {
 	foreignKey: "id_ticket",
 	as: "filled_tickets",
 });
-FilledTicket.belongsTo(GeneratedTicket, {
+FilledTicket.belongsTo(SettingTicket, {
 	foreignKey: "id_ticket",
 	as: "ticket",
 });
