@@ -871,7 +871,7 @@ app.get("/user_info", isUser, async (req, res) => {
 				},
 				history_operations: historyOperations.map((op) => ({
 					id: op.id,
-					amount: parseFloat(op.change) || 0,
+					amount: parseFloat(op.change?.replace("$", "")) || 0,
 					is_successful: op.is_succesfull,
 					date: op.date,
 					time: op.time,
