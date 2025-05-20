@@ -928,7 +928,6 @@ app.get("/current_tickets", async (req, res) => {
 		// Получаем все активные настройки с is_start = true
 		const activeSettings = await SettingTicket.findAll({
 			where: { is_start: true },
-			attributes: ["id"],
 		});
 
 		return res.status(200).json(activeSettings);
