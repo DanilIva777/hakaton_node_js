@@ -2344,8 +2344,11 @@ app.post("/game/skip", isUser, async (req, res) => {
 		}
 
 		const setting = game.setting;
-		const skipCost = parseFloat(setting.initial_skill_cost);
-		const userBalance = parseFloat(userInfo.balance_real);
+		const skipCost = parseFloat(
+			setting.initial_skill_cost?.replace("$", "") || "0"
+		);
+		const userBalance =
+			parseFloat(userInfo.balance_virtual)?.replace("$", "") || "0";
 
 		if (userBalance < skipCost) {
 			await transaction.rollback();
@@ -2354,7 +2357,7 @@ app.post("/game/skip", isUser, async (req, res) => {
 				.json({ message: "Недостаточно средств для пропуска" });
 		}
 
-		userInfo.balance_real = (userBalance - skipCost).toFixed(2);
+		userInfo.balance_virtual = (userBalance - skipCost).toFixed(2);
 		game.skip_count += 1;
 		game.total_bets = (parseFloat(game.total_bets) + skipCost).toFixed(2);
 
@@ -2362,13 +2365,13 @@ app.post("/game/skip", isUser, async (req, res) => {
 		game.current_number = newNumber;
 
 		const typeTransaction = await TypeTransaction.findOne({
-			where: { naim: "Ставка в лото или играх (реальная валюта)" },
+			where: { naim: "Пропуск хода в судоку (бонусы)" },
 			transaction,
 		});
 		if (!typeTransaction) {
 			await transaction.rollback();
 			throw new Error(
-				"Тип транзакции 'Ставка в лото или играх (реальная валюта)' не найден"
+				"Тип транзакции 'Пропуск хода в судоку (бонусы)' не найден"
 			);
 		}
 
