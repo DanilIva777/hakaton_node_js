@@ -177,6 +177,14 @@ const FilledTicket = sequelize.define(
 			type: DataTypes.INTEGER,
 			allowNull: false,
 		},
+		multiplier: {
+			type: DataTypes.DECIMAL(10, 2),
+			allowNull: true,
+		},
+		multiplier_numbers: {
+			type: DataTypes.JSONB,
+			allowNull: true,
+		},
 	},
 	{
 		tableName: "filled_ticket",
@@ -278,10 +286,6 @@ const UserInfo = sequelize.define(
 			type: DataTypes.DATEONLY,
 			allowNull: true,
 		},
-		vip_stop_time: {
-			type: DataTypes.TIME,
-			allowNull: true,
-		},
 		category_vip: {
 			// Добавлено поле, отсутствующее в исходной модели
 			type: DataTypes.INTEGER,
@@ -335,7 +339,125 @@ const VipCost = sequelize.define(
 	}
 );
 
+const Game = sequelize.define(
+	"Game",
+	{
+		id: {
+			type: DataTypes.INTEGER,
+			primaryKey: true,
+			autoIncrement: true,
+		},
+		id_user: {
+			type: DataTypes.INTEGER,
+			allowNull: false,
+		},
+		grid: {
+			type: DataTypes.JSONB,
+			allowNull: false,
+		},
+		current_number: {
+			type: DataTypes.INTEGER,
+			allowNull: true,
+		},
+		skip_count: {
+			type: DataTypes.INTEGER,
+			allowNull: false,
+			defaultValue: 0,
+		},
+		current_move_cost: {
+			type: DataTypes.DECIMAL(10, 2),
+			allowNull: false,
+			defaultValue: 5.0,
+		},
+		total_bets: {
+			type: DataTypes.DECIMAL(10, 2),
+			allowNull: false,
+			defaultValue: 0.0,
+		},
+		total_payouts: {
+			type: DataTypes.DECIMAL(10, 2),
+			allowNull: false,
+			defaultValue: 0.0,
+		},
+		is_active: {
+			type: DataTypes.BOOLEAN,
+			allowNull: false,
+			defaultValue: true,
+		},
+		date_created: {
+			type: DataTypes.DATEONLY,
+			allowNull: true,
+		},
+		time_created: {
+			type: DataTypes.TIME,
+			allowNull: true,
+		},
+	},
+	{
+		tableName: "game",
+		schema: "public",
+		timestamps: false,
+	}
+);
+
+const SettingGame = sequelize.define(
+	"SettingGame",
+	{
+		id: {
+			type: DataTypes.INTEGER,
+			primaryKey: true,
+			autoIncrement: true,
+		},
+		base_move_cost: {
+			type: DataTypes.DECIMAL(10, 2),
+			allowNull: false,
+			defaultValue: 5.0,
+		},
+		initial_skill_cost: {
+			type: DataTypes.DECIMAL(10, 2),
+			allowNull: false,
+			defaultValue: 3.0,
+		},
+		payout_row_col: {
+			type: DataTypes.DECIMAL(10, 2),
+			allowNull: false,
+			defaultValue: 15.0,
+		},
+		payout_block: {
+			type: DataTypes.DECIMAL(10, 2),
+			allowNull: false,
+			defaultValue: 50.0,
+		},
+		payout_complete: {
+			type: DataTypes.DECIMAL(10, 2),
+			allowNull: false,
+			defaultValue: 500.0,
+		},
+		initial_filled_cells: {
+			type: DataTypes.INTEGER,
+			allowNull: false,
+			defaultValue: 40,
+		},
+		is_active: {
+			type: DataTypes.BOOLEAN,
+			allowNull: false,
+			defaultValue: true,
+		},
+	},
+	{
+		tableName: "setting_game",
+		schema: "public",
+		timestamps: false,
+	}
+);
+
 // Определение связей
+UserInfo.hasMany(Game, { foreignKey: "id_user", as: "games" });
+Game.belongsTo(UserInfo, { foreignKey: "id_user", as: "user" });
+
+SettingGame.hasMany(Game, { foreignKey: "id_setting_game", as: "games" });
+Game.belongsTo(SettingGame, { foreignKey: "id_setting_game", as: "setting" });
+
 Role.hasMany(Account, { foreignKey: "role_id", as: "accounts" });
 Account.belongsTo(Role, { foreignKey: "role_id", as: "role" });
 
@@ -403,4 +525,6 @@ module.exports = {
 	TypeTransaction,
 	UserInfo,
 	VipCost,
+	Game,
+	SettingGame,
 };
