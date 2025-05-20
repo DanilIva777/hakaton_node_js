@@ -2246,15 +2246,8 @@ app.post("/game/move", isUser, async (req, res) => {
 
 		// Проверка баланса
 		const cost =
-			parseFloat(
-				game.current_move_cost?.replace("$", "")?.replace(/,/g, "")
-			) +
-			game.skip_count *
-				parseFloat(
-					game.setting.initial_skill_cost
-						?.replace("$", "")
-						?.replace(/,/g, "")
-				);
+			parseFloat(game.current_move_cost) +
+			game.skip_count * parseFloat(game.setting.initial_skill_cost);
 		if (userInfo.bonus_balance < cost) {
 			await transaction.rollback();
 			return res.status(400).json({ message: "Недостаточно бонусов" });
@@ -2265,13 +2258,9 @@ app.post("/game/move", isUser, async (req, res) => {
 
 		// Обновление баланса и ставок
 		userInfo.bonus_balance -= cost;
-		game.total_bets =
-			parseFloat(game.total_bets?.replace("$", "")?.replace(/,/g, "")) +
-			cost;
+		game.total_bets = parseFloat(game.total_bets) + cost;
 		game.skip_count = 0;
-		game.current_move_cost = parseFloat(
-			game.setting.base_move_cost?.replace("$", "")?.replace(/,/g, "")
-		);
+		game.current_move_cost = parseFloat(game.setting.base_move_cost);
 
 		// Проверка завершений
 		const { payout, updatedGrid } = checkCompletions(
@@ -2279,10 +2268,7 @@ app.post("/game/move", isUser, async (req, res) => {
 			game.setting
 		);
 		game.grid = updatedGrid;
-		game.total_payouts =
-			parseFloat(
-				game.total_payouts?.replace("$", "")?.replace(/,/g, "")
-			) + payout;
+		game.total_payouts = parseFloat(game.total_payouts) + payout;
 		userInfo.bonus_balance += payout;
 
 		// Генерация нового числа
@@ -2394,9 +2380,7 @@ function checkCompletions(grid, setting) {
 	for (let r = 0; r < 9; r++) {
 		const cells = Array.from({ length: 9 }, (_, c) => [r, c]);
 		if (isCompleteGroup(cells)) {
-			payout += parseFloat(
-				setting.payout_row_col?.replace("$", "")?.replace(/,/g, "")
-			);
+			payout += parseFloat(setting.payout_row_col);
 			cells.forEach(([r, c]) => (newGrid[r][c] = 0));
 		}
 	}
@@ -2405,9 +2389,7 @@ function checkCompletions(grid, setting) {
 	for (let c = 0; c < 9; c++) {
 		const cells = Array.from({ length: 9 }, (_, r) => [r, c]);
 		if (isCompleteGroup(cells)) {
-			payout += parseFloat(
-				setting.payout_row_col?.replace("$", "")?.replace(/,/g, "")
-			);
+			payout += parseFloat(setting.payout_row_col);
 			cells.forEach(([r, c]) => (newGrid[r][c] = 0));
 		}
 	}
@@ -2422,9 +2404,7 @@ function checkCompletions(grid, setting) {
 				}
 			}
 			if (isCompleteGroup(cells)) {
-				payout += parseFloat(
-					setting.payout_block?.replace("$", "")?.replace(/,/g, "")
-				);
+				payout += parseFloat(setting.payout_block);
 				cells.forEach(([r, c]) => (newGrid[r][c] = 0));
 			}
 		}
@@ -2433,9 +2413,7 @@ function checkCompletions(grid, setting) {
 	// Проверка полного завершения
 	const isComplete = newGrid.every((row) => row.every((cell) => cell !== 0));
 	if (isComplete) {
-		payout += parseFloat(
-			setting.payout_complete?.replace("$", "")?.replace(/,/g, "")
-		);
+		payout += parseFloat(setting.payout_complete);
 	}
 
 	return { payout, updatedGrid: newGrid };
@@ -2495,10 +2473,7 @@ app.post("/game/skip", isUser, async (req, res) => {
 
 		userInfo.balance_virtual = (userBalance - skipCost).toFixed(2);
 		game.skip_count += 1;
-		game.total_bets = (
-			parseFloat(game.total_bets?.replace("$", "")?.replace(/,/g, "")) +
-			skipCost
-		).toFixed(2);
+		game.total_bets = (parseFloat(game.total_bets) + skipCost).toFixed(2);
 
 		const newNumber = await generateRandomNumber(1, 9);
 		game.current_number = newNumber;
