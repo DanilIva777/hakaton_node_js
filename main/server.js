@@ -904,7 +904,7 @@ app.get("/current_tickets", async (req, res) => {
 		const activeSettings = await SettingTicket.findAll({
 			where: { is_start: true },
 		});
-		return req.status(200).json(activeSettings);
+		return res.status(200).json(activeSettings);
 		if (!activeSettings || activeSettings.length === 0) {
 			return res.status(404).json({
 				success: false,
@@ -2083,11 +2083,9 @@ app.post("/game/move", isUser, async (req, res) => {
 
 		if (!validMove) {
 			await transaction.rollback();
-			return res
-				.status(400)
-				.json({
-					message: "Невозможно разместить число в указанных клетках",
-				});
+			return res.status(400).json({
+				message: "Невозможно разместить число в указанных клетках",
+			});
 		}
 
 		userInfo.balance_real = (userBalance - moveCost).toFixed(2);
