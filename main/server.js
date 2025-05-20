@@ -1446,25 +1446,13 @@ app.get("/filled_ticket", isUser, async (req, res) => {
 			], // Сортировка по дате и времени по убыванию
 			include: [
 				{
-					model: GeneratedTicket,
-					as: "ticket",
+					model: SettingTicket,
+					as: "setting_ticket",
 					attributes: [
 						"id",
-						"id_setting_ticket",
-						"arr_number",
-						"arr_true_number",
-					],
-					include: [
-						{
-							model: SettingTicket,
-							as: "setting_ticket",
-							attributes: [
-								"id",
-								"price_ticket",
-								"count_number_row",
-								"count_fill_user",
-							],
-						},
+						"price_ticket",
+						"count_number_row",
+						"count_fill_user",
 					],
 				},
 				{
