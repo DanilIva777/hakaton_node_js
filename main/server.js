@@ -855,8 +855,12 @@ app.get("/user_info", isUser, async (req, res) => {
 					role: targetAccount.role?.naim || "Неизвестная роль",
 				},
 				info: {
-					balance_real: parseFloat(userInfo.balance_real) || 0,
-					balance_virtual: parseFloat(userInfo.balance_virtual) || 0,
+					balance_real: parseFloat(
+						userInfo.balance_real?.replace("$", "") || "0"
+					),
+					balance_virtual: parseFloat(
+						userInfo.balance_virtual?.replace("$", "") || "0"
+					),
 					is_vip: userInfo.is_vip || false,
 					vip_stop_date: userInfo.vip_stop_date || null,
 					vip_category: userInfo.vip_cost
