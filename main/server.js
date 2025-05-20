@@ -2686,6 +2686,7 @@ app.post("/user/balance/update", isUser, async (req, res) => {
 		if (real_balance !== undefined) {
 			userInfo.real_balance = parseFloat(real_balance);
 		}
+
 		if (balance_virtual !== undefined) {
 			userInfo.balance_virtual = parseFloat(
 				balance_virtual?.replace("$", "").replace(/,/g, "")
@@ -2699,12 +2700,18 @@ app.post("/user/balance/update", isUser, async (req, res) => {
 			success: true,
 			user: {
 				id_acc: userInfo.id_acc,
-				real_balance: userInfo.real_balance
-					?.replace("$", "")
-					.replace(/,/g, ""),
-				balance_virtual: userInfo.balance_virtual
-					?.replace("$", "")
-					.replace(/,/g, ""),
+				real_balance:
+					typeof userInfo.real_balance === "string"
+						? userInfo.real_balance
+								?.replace("$", "")
+								.replace(/,/g, "")
+						: userInfo.real_balance,
+				balance_virtual:
+					typeof userInfo.balance_virtual === "string"
+						? userInfo.balance_virtual
+								?.replace("$", "")
+								.replace(/,/g, "")
+						: userInfo.balance_virtual,
 			},
 			message: "Баланс успешно обновлен",
 		});
