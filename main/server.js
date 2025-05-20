@@ -223,7 +223,11 @@ const multiplierFactors = {
 	2: 4,
 };
 
-async function checkDiagonalMatch(arrMultiplierNumber, settingId, countNumberRow) {
+async function checkDiagonalMatch(
+	arrMultiplierNumber,
+	settingId,
+	countNumberRow
+) {
 	const size = countNumberRow[0];
 	if (arrMultiplierNumber.length !== size) {
 		return false;
@@ -789,12 +793,12 @@ app.get("/user_info", isUser, async (req, res) => {
 					vip_stop_date: userInfo.vip_stop_date || null,
 					vip_category: userInfo.vip_cost
 						? {
-							id: userInfo.vip_cost.id,
-							name: userInfo.vip_cost.naim,
-							price: parseFloat(userInfo.vip_cost.price) || 0,
-							count_day: userInfo.vip_cost.count_day || 0,
-							category: userInfo.vip_cost.category || 0,
-						}
+								id: userInfo.vip_cost.id,
+								name: userInfo.vip_cost.naim,
+								price: parseFloat(userInfo.vip_cost.price) || 0,
+								count_day: userInfo.vip_cost.count_day || 0,
+								category: userInfo.vip_cost.category || 0,
+						  }
 						: null,
 				},
 				history_operations: historyOperations.map((op) => ({
@@ -808,49 +812,49 @@ app.get("/user_info", isUser, async (req, res) => {
 				})),
 				active_game: activeGame
 					? {
-						id: activeGame.id,
-						grid: activeGame.grid,
-						current_number: activeGame.current_number,
-						skip_count: activeGame.skip_count,
-						current_move_cost:
-							parseFloat(activeGame.current_move_cost) || 0,
-						total_bets: parseFloat(activeGame.total_bets) || 0,
-						total_payouts:
-							parseFloat(activeGame.total_payouts) || 0,
-						date_created: activeGame.date_created,
-						time_created: activeGame.time_created,
-						setting: activeGame.setting
-							? {
-								base_move_cost:
-									parseFloat(
-										activeGame.setting
-											.base_move_cost
-									) || 0,
-								initial_skill_cost:
-									parseFloat(
-										activeGame.setting
-											.initial_skill_cost
-									) || 0,
-								payout_row_col:
-									parseFloat(
-										activeGame.setting
-											.payout_row_col
-									) || 0,
-								payout_block:
-									parseFloat(
-										activeGame.setting.payout_block
-									) || 0,
-								payout_complete:
-									parseFloat(
-										activeGame.setting
-											.payout_complete
-									) || 0,
-								initial_filled_cells:
-									activeGame.setting
-										.initial_filled_cells || 0,
-							}
-							: null,
-					}
+							id: activeGame.id,
+							grid: activeGame.grid,
+							current_number: activeGame.current_number,
+							skip_count: activeGame.skip_count,
+							current_move_cost:
+								parseFloat(activeGame.current_move_cost) || 0,
+							total_bets: parseFloat(activeGame.total_bets) || 0,
+							total_payouts:
+								parseFloat(activeGame.total_payouts) || 0,
+							date_created: activeGame.date_created,
+							time_created: activeGame.time_created,
+							setting: activeGame.setting
+								? {
+										base_move_cost:
+											parseFloat(
+												activeGame.setting
+													.base_move_cost
+											) || 0,
+										initial_skill_cost:
+											parseFloat(
+												activeGame.setting
+													.initial_skill_cost
+											) || 0,
+										payout_row_col:
+											parseFloat(
+												activeGame.setting
+													.payout_row_col
+											) || 0,
+										payout_block:
+											parseFloat(
+												activeGame.setting.payout_block
+											) || 0,
+										payout_complete:
+											parseFloat(
+												activeGame.setting
+													.payout_complete
+											) || 0,
+										initial_filled_cells:
+											activeGame.setting
+												.initial_filled_cells || 0,
+								  }
+								: null,
+					  }
 					: null,
 				filled_tickets: filledTickets.map((ticket) => ({
 					id: ticket.id,
@@ -862,19 +866,19 @@ app.get("/user_info", isUser, async (req, res) => {
 					multiplier_numbers: ticket.multiplier_numbers,
 					setting: ticket.setting_ticket
 						? {
-							id: ticket.setting_ticket.id,
-							time: ticket.setting_ticket.time,
-							price_ticket:
-								parseFloat(
-									String(
-										ticket.setting_ticket.price_ticket
-									).replace(/[^0-9.]/g, "")
-								) || 0,
-							count_number_row:
-								ticket.setting_ticket.count_number_row,
-							count_fill_user:
-								ticket.setting_ticket.count_fill_user,
-						}
+								id: ticket.setting_ticket.id,
+								time: ticket.setting_ticket.time,
+								price_ticket:
+									parseFloat(
+										String(
+											ticket.setting_ticket.price_ticket
+										).replace(/[^0-9.]/g, "")
+									) || 0,
+								count_number_row:
+									ticket.setting_ticket.count_number_row,
+								count_fill_user:
+									ticket.setting_ticket.count_fill_user,
+						  }
 						: null,
 				})),
 			},
@@ -900,7 +904,7 @@ app.get("/current_tickets", async (req, res) => {
 		const activeSettings = await SettingTicket.findAll({
 			where: { is_start: true },
 		});
-
+		return req.status(200).json(activeSettings);
 		if (!activeSettings || activeSettings.length === 0) {
 			return res.status(404).json({
 				success: false,
@@ -958,18 +962,18 @@ app.get("/current_tickets", async (req, res) => {
 			numbers: ticket.arr_number,
 			setting: ticket.setting_ticket
 				? {
-					id: ticket.setting_ticket.id,
-					time: ticket.setting_ticket.time,
-					price: parseFloat(
-						String(ticket.setting_ticket.price_ticket).replace(
-							/[^0-9.]/g,
-							""
-						)
-					),
-					count_number_row:
-						ticket.setting_ticket.count_number_row,
-					count_fill_user: ticket.setting_ticket.count_fill_user,
-				}
+						id: ticket.setting_ticket.id,
+						time: ticket.setting_ticket.time,
+						price: parseFloat(
+							String(ticket.setting_ticket.price_ticket).replace(
+								/[^0-9.]/g,
+								""
+							)
+						),
+						count_number_row:
+							ticket.setting_ticket.count_number_row,
+						count_fill_user: ticket.setting_ticket.count_fill_user,
+				  }
 				: null,
 		}));
 
@@ -1218,7 +1222,8 @@ app.post("/setting_ticket", isAdmin, async (req, res) => {
 			const intervalMs = timeToMilliseconds(newSettingTicket.time);
 			setTimeout(async () => {
 				console.log(
-					`[${new Date().toISOString()}] Генерация билета для ${newSettingTicket.id
+					`[${new Date().toISOString()}] Генерация билета для ${
+						newSettingTicket.id
 					}`
 				);
 				try {
@@ -1403,32 +1408,32 @@ app.get("/filled_ticket", isUser, async (req, res) => {
 			history_operation_id: ticket.id_history_operation,
 			setting: ticket.setting_ticket
 				? {
-					id: ticket.setting_ticket.id,
-					price: parseFloat(
-						String(ticket.setting_ticket.price_ticket).replace(
-							/[^0-9.]/g,
-							""
-						)
-					),
-					count_number_row:
-						ticket.setting_ticket.count_number_row,
-					count_fill_user: ticket.setting_ticket.count_fill_user,
-				}
+						id: ticket.setting_ticket.id,
+						price: parseFloat(
+							String(ticket.setting_ticket.price_ticket).replace(
+								/[^0-9.]/g,
+								""
+							)
+						),
+						count_number_row:
+							ticket.setting_ticket.count_number_row,
+						count_fill_user: ticket.setting_ticket.count_fill_user,
+				  }
 				: null,
 			history: ticket.history
 				? {
-					id: ticket.history.id,
-					change: parseFloat(
-						String(ticket.history.change).replace(
-							/[^0-9.]/g,
-							""
-						)
-					),
-					type_transaction: ticket.history.transaction_type
-						? ticket.history.transaction_type.naim
-						: null,
-					is_successful: ticket.history.is_succesfull,
-				}
+						id: ticket.history.id,
+						change: parseFloat(
+							String(ticket.history.change).replace(
+								/[^0-9.]/g,
+								""
+							)
+						),
+						type_transaction: ticket.history.transaction_type
+							? ticket.history.transaction_type.naim
+							: null,
+						is_successful: ticket.history.is_succesfull,
+				  }
 				: null,
 		}));
 
@@ -2080,13 +2085,13 @@ app.post("/game/move", isUser, async (req, res) => {
 			await transaction.rollback();
 			return res
 				.status(400)
-				.json({ message: "Невозможно разместить число в указанных клетках" });
+				.json({
+					message: "Невозможно разместить число в указанных клетках",
+				});
 		}
 
 		userInfo.balance_real = (userBalance - moveCost).toFixed(2);
-		game.total_bets = (
-			parseFloat(game.total_bets) + moveCost
-		).toFixed(2);
+		game.total_bets = (parseFloat(game.total_bets) + moveCost).toFixed(2);
 
 		const payout = checkCompletions(grid, setting);
 		if (payout > 0) {
@@ -2150,7 +2155,10 @@ app.post("/game/move", isUser, async (req, res) => {
 			);
 		}
 
-		const completionProbability = calculateCompletionProbability(grid, cells);
+		const completionProbability = calculateCompletionProbability(
+			grid,
+			cells
+		);
 
 		if (completionProbability >= 100) {
 			game.is_active = false;
@@ -2237,9 +2245,7 @@ app.post("/game/skip", isUser, async (req, res) => {
 
 		userInfo.balance_real = (userBalance - skipCost).toFixed(2);
 		game.skip_count += 1;
-		game.total_bets = (
-			parseFloat(game.total_bets) + skipCost
-		).toFixed(2);
+		game.total_bets = (parseFloat(game.total_bets) + skipCost).toFixed(2);
 
 		const newNumber = await generateRandomNumber(1, 9);
 		game.current_number = newNumber;
