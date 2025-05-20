@@ -931,6 +931,7 @@ app.get("/current_tickets", async (req, res) => {
 			attributes: ["id"],
 		});
 
+		return res.status(200).json(activeSettings);
 		if (!activeSettings || activeSettings.length === 0) {
 			return res.status(404).json({
 				success: false,
@@ -959,6 +960,7 @@ app.get("/current_tickets", async (req, res) => {
 							"price_ticket",
 							"count_number_row",
 							"count_fill_user",
+							"arr_number",
 						],
 					},
 				],
