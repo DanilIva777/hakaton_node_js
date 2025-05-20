@@ -14,12 +14,18 @@ const sequelize = new Sequelize(
 		define: {
 			timestamps: false,
 		},
+		// Убираем некорректный dialectOptions
+		// dialectOptions: {
+		//     options: "--lc_monetary='C'"
+		// },
 	}
 );
 
 async function connectToDatabase() {
 	try {
 		await sequelize.authenticate();
+		// Устанавливаем lc_monetary = C для текущей сессии
+		await sequelize.query("SET lc_monetary = 'C'");
 		console.log("Connection has been established successfully.");
 		return sequelize;
 	} catch (error) {
