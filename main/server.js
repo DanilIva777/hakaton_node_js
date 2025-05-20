@@ -201,6 +201,7 @@ async function createGeneratedTicket(setting) {
 				};
 			});
 
+			console.log("CATEGORIES", categories);``
 			for (const filledTicket of filledTickets) {
 				const userInfo = filledTicket.user;
 
