@@ -2053,15 +2053,49 @@ app.post("/game/start", isUser, async (req, res) => {
 				.json({ message: "Информация о пользователе не найдена" });
 		}
 
+		// Проверка на наличие активной игры
 		const activeGame = await Game.findOne({
 			where: { id_user: userInfo.id, is_active: true },
+			include: [{ model: SettingGame, as: "setting" }],
 			transaction,
 		});
 		if (activeGame) {
-			await transaction.rollback();
-			return res
-				.status(400)
-				.json({ message: "У вас уже есть активная игра" });
+			await transaction.commit();
+			return res.status(200).json({
+				success: true,
+				message: "Найдена активная игра",
+				game: {
+					id: activeGame.id,
+					grid: activeGame.grid,
+					current_number: activeGame.current_number,
+					skip_count: activeGame.skip_count,
+					current_move_cost: parseFloat(activeGame.current_move_cost),
+					total_bets: parseFloat(activeGame.total_bets),
+					total_payouts: parseFloat(activeGame.total_payouts),
+					is_active: activeGame.is_active,
+					date_created: activeGame.date_created,
+					time_created: activeGame.time_created,
+					setting: {
+						base_move_cost: parseFloat(
+							activeGame.setting.base_move_cost
+						),
+						initial_skill_cost: parseFloat(
+							activeGame.setting.initial_skill_cost
+						),
+						payout_row_col: parseFloat(
+							activeGame.setting.payout_row_col
+						),
+						payout_block: parseFloat(
+							activeGame.setting.payout_block
+						),
+						payout_complete: parseFloat(
+							activeGame.setting.payout_complete
+						),
+						initial_filled_cells:
+							activeGame.setting.initial_filled_cells,
+					},
+				},
+			});
 		}
 
 		const setting = await SettingGame.findOne({
@@ -2123,7 +2157,7 @@ app.post("/game/start", isUser, async (req, res) => {
 		});
 	} catch (error) {
 		await transaction.rollback();
-		console.error("Ошибка при создании игры:", error);
+		console.error("Ошибка при создании или получении игры:", error);
 		res.status(500).json({
 			success: false,
 			message: "Ошибка сервера: " + error.message,
