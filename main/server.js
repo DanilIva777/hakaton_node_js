@@ -2288,7 +2288,7 @@ app.post("/game/move", isUser, async (req, res) => {
 		game.grid = newGrid;
 
 		// Обновление баланса и ставок
-		userInfo.bonus_balance = currentBalance - cost;
+		userInfo.balance_virtual = currentBalance - cost;
 		game.total_bets = parseFloat(game.total_bets) + cost;
 		game.skip_count = 0;
 		game.current_move_cost = parseFloat(game.setting.base_move_cost);
@@ -2300,7 +2300,9 @@ app.post("/game/move", isUser, async (req, res) => {
 		);
 		game.grid = JSON.parse(JSON.stringify(updatedGrid)); // Гарантируем новый объект
 		game.total_payouts = parseFloat(game.total_payouts) + payout;
-		userInfo.bonus_balance = userInfo.bonus_balance + payout;
+		userInfo.balance_virtual =
+			userInfo.balance_virtual?.replace("$", "")?.replace(/,/g, "") +
+			payout;
 
 		// Генерация нового числа
 		game.current_number = await generateRandomNumber(1, 9);
