@@ -95,6 +95,10 @@ const SettingTicket = sequelize.define(
 			type: DataTypes.INTEGER,
 			allowNull: true,
 		},
+		arr_number: {
+			type: DataTypes.ARRAY(DataTypes.INTEGER),
+			allowNull: true,
+		},
 	},
 	{
 		tableName: "setting_ticket",

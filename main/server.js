@@ -424,7 +424,7 @@ function scheduleGeneratedTickets() {
 		"Server timezone:",
 		Intl.DateTimeFormat().resolvedOptions().timeZone
 	);
-	updateSettingsCache();
+	// updateSettingsCache();
 }
 
 // Вызов функции при старте
@@ -1255,14 +1255,29 @@ app.post("/setting_ticket", isAdmin, async (req, res) => {
 					is_start: is_start || false,
 					count_number_row: count_number_row || null,
 					count_fill_user: count_fill_user || null,
+					arr_number: await generateTicketNumbers(count_number_row),
 				},
 				{ transaction }
 			);
 
 			await transaction.commit();
-
+			const intervalMs = timeToMilliseconds(newSettingTicket.time);
 			// Принудительное обновление кэша и запуск таймера
-			await updateSingleSetting(newSettingTicket.id);
+			setTimeout(async () => {
+				console.log(
+					`[${new Date().toISOString()}] Генерация билета для ${
+						newSettingTicket.id
+					}`
+				);
+				try {
+					await createGeneratedTicket(newSettingTicket);
+				} catch (error) {
+					console.error(
+						`Ошибка генерации билета ${newSettingTicket.id}:`,
+						error
+					);
+				}
+			}, intervalMs);
 
 			res.status(201).json({
 				success: true,
@@ -1346,7 +1361,7 @@ app.put("/update-setting_ticket/:id", isAdmin, async (req, res) => {
 		await transaction.commit();
 
 		// Принудительное обновление таймера
-		await updateSingleSetting(settingTicketId);
+		// await updateSingleSetting(settingTicketId);
 
 		res.json({
 			success: true,
