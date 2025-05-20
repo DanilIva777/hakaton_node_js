@@ -1557,14 +1557,7 @@ app.post("/filled_ticket", isUser, async (req, res) => {
 				message: "Не указаны id_generated_ticket или arr_number",
 			});
 		}
-		if (
-			!Array.isArray(arr_multiplier_number) ||
-			arr_multiplier_number.length === 0
-		) {
-			return res.status(400).json({
-				message: "Не указан arr_multiplier_number или он пуст",
-			});
-		}
+
 		if (
 			isNaN(multiplier) ||
 			multiplier <= 0 ||
@@ -1659,18 +1652,23 @@ app.post("/filled_ticket", isUser, async (req, res) => {
 			}
 		}
 
-		// Валидация arr_multiplier_number
-		const gridSize = settingTicket.count_number_row[0]; // Assuming square grid
-		if (arr_multiplier_number.length !== gridSize) {
-			return res.status(400).json({
-				message: `Ожидается ${gridSize} чисел в arr_multiplier_number для диагонали`,
-			});
-		}
-		for (const num of arr_multiplier_number) {
-			if (!Number.isInteger(num) || num < 1 || num > totalNumbers) {
+		if (
+			!Array.isArray(arr_multiplier_number) ||
+			arr_multiplier_number.length === 0
+		) {
+			// Валидация arr_multiplier_number
+			const gridSize = settingTicket.count_number_row[0]; // Assuming square grid
+			if (arr_multiplier_number.length !== gridSize) {
 				return res.status(400).json({
-					message: `Некорректное число в arr_multiplier_number: ${num}`,
+					message: `Ожидается ${gridSize} чисел в arr_multiplier_number для диагонали`,
 				});
+			}
+			for (const num of arr_multiplier_number) {
+				if (!Number.isInteger(num) || num < 1 || num > totalNumbers) {
+					return res.status(400).json({
+						message: `Некорректное число в arr_multiplier_number: ${num}`,
+					});
+				}
 			}
 		}
 
