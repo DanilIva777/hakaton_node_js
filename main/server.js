@@ -2688,9 +2688,7 @@ app.post("/user/balance/update", isUser, async (req, res) => {
 		}
 
 		if (balance_virtual !== undefined) {
-			userInfo.balance_virtual = parseFloat(
-				balance_virtual?.replace("$", "").replace(/,/g, "")
-			);
+			userInfo.balance_virtual = balance_virtual;
 		}
 
 		await userInfo.save();
