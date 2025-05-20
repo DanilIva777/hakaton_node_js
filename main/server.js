@@ -2366,7 +2366,7 @@ app.listen(port, async () => {
 	try {
 		await connectToDatabase();
 		console.log(`Сервер запущен на порту ${port}`);
-		await updateSettingsCache();
+		// await updateSettingsCache();
 	} catch (error) {
 		console.error("Ошибка при запуске сервера:", error);
 	}
