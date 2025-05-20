@@ -2339,6 +2339,7 @@ app.post("/game/move", isUser, async (req, res) => {
 
 		// Сохранение изменений
 		await userInfo.save({ transaction });
+		game.grid = [...game.grid];
 		await game.save({ transaction });
 		await transaction.commit();
 
