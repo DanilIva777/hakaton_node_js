@@ -2493,9 +2493,9 @@ app.post("/game/skip", isUser, async (req, res) => {
 				"0"
 		);
 		const userBalance =
-			parseFloat(userInfo.balance_virtual)
-				?.replace("$", "")
-				.replace(/,/g, "") || "0";
+			parseFloat(
+				userInfo.balance_virtual?.replace("$", "").replace(/,/g, "")
+			) || "0";
 
 		if (userBalance < skipCost) {
 			try {
